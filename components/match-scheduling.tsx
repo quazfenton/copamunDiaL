@@ -12,7 +12,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { format } from "date-fns"
-import { CalendarIcon, Clock, MapPin } from "lucide-react"
+import { CalendarIcon, Clock } from "lucide-react"
+import { LocationPicker } from "@/components/location-picker"
 import { teams } from "@/lib/data"
 
 interface MatchSchedulingProps {
@@ -101,16 +102,10 @@ export default function MatchScheduling({ isOpen, onClose }: MatchSchedulingProp
 
             <div className="space-y-2">
               <Label htmlFor="location">Location</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <Input
-                  id="location"
-                  placeholder="Enter match location"
-                  className="bg-gray-800/50 border-gray-700 pl-10"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                />
-              </div>
+              <LocationPicker
+                value={location}
+                onChange={setLocation}
+              />
             </div>
           </div>
 

@@ -5,11 +5,9 @@ import { DndProvider } from "react-dnd"
 import { HTML5Backend } from "react-dnd-html5-backend"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as Sonner } from "sonner"
-import TeamLineup from "@/components/team-lineup"
+import { SoccerField } from "@/components/soccer-field"
 import SportSelector from "@/components/sport-selector"
 import FormationSelector from "@/components/formation-selector"
-import Navbar from "@/components/navbar"
-import OptionsMenu from "@/components/options-menu"
 import SideMenu from "@/components/side-menu"
 import TeamManagement from "@/components/team-management"
 import PlayerInvite from "@/components/player-invite"
@@ -20,7 +18,9 @@ import TeamProfile from "@/components/team-profile"
 import LeaguesManager from "@/components/leagues-manager"
 import CalendarView from "@/components/calendar-view"
 import PickupGames from "@/components/pickup-games"
-import { players } from "@/lib/data"
+import NotificationSystem, { sampleNotifications } from "@/components/notification-system"
+import { players, teams } from "@/lib/data"
+import { Player, TeamData, Notification } from "@/lib/types"
 
 const sports = ["Soccer", "Basketball", "American Football", "Baseball"]
 const formations = {
@@ -34,7 +34,16 @@ export default function SportsManagementApp() {
   const [selectedSport, setSelectedSport] = useState(sports[0])
   const [selectedFormation, setSelectedFormation] = useState(formations[selectedSport][0])
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [currentTeam, setCurrentTeam] = useState("Your Team")
+  
+  // Current user and team state
+  const [currentUserId] = useState(1) // John Doe
+  const [currentTeamId, setCurrentTeamId] = useState(1)
+  const [userTeams, setUserTeams] = useState<TeamData[]>(teams.filter(team => 
+    players.find(p => p.id === currentUserId)?.teams.includes(team.id)
+  ))
+  
+  // Current team data
+  const currentTeam = teams.find(team => team.id === currentTeamId) || teams[0]
   
   // Dialog states
   const [isTeamManagementOpen, setIsTeamManagementOpen] = useState(false)
@@ -46,17 +55,50 @@ export default function SportsManagementApp() {
   const [isLeaguesOpen, setIsLeaguesOpen] = useState(false)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [isPickupGamesOpen, setIsPickupGamesOpen] = useState(false)
+  
+  // Player interaction state
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
+  
+  // Notification state
+  const [notifications, setNotifications] = useState<Notification[]>(sampleNotifications)
 
   const handleSportChange = (sport: string) => {
     setSelectedSport(sport)
     setSelectedFormation(formations[sport][0])
   }
 
+  const handlePlayerMove = (result: any) => {
+    console.log("Player moved:", result)
+    // Handle player movement logic here
+  }
+
+  const handlePlayerClick = (player: Player) => {
+    setSelectedPlayer(player)
+    setIsProfileOpen(true)
+  }
+
+  const handleNotificationAccept = (notificationId: number) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === notificationId ? { ...n, status: 'accepted' as const, isRead: true } : n)
+    )
+  }
+
+  const handleNotificationDecline = (notificationId: number) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === notificationId ? { ...n, status: 'declined' as const, isRead: true } : n)
+    )
+  }
+
+  const handleNotificationDismiss = (notificationId: number) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+    )
+  }
+
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="container mx-auto px-4 py-8">
-        <Navbar onMenuClick={() => setIsMenuOpen(!isMenuOpen)} />
-        
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black">
+        {/* Side Menu - Always visible on the left */}
         <SideMenu 
           onMyTeamClick={() => setIsTeamManagementOpen(true)}
           onFindMatchClick={() => setIsMatchFinderOpen(true)}
@@ -73,23 +115,60 @@ export default function SportsManagementApp() {
           }}
         />
         
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <SportSelector 
-              sports={sports} 
-              selectedSport={selectedSport} 
-              onSelectSport={handleSportChange} 
-            />
-            <FormationSelector
-              formations={formations[selectedSport]}
-              selectedFormation={selectedFormation}
-              onSelectFormation={setSelectedFormation}
-            />
+        {/* Main Content */}
+        <div className="pl-16 transition-all duration-300 min-h-screen"> {/* Add padding to account for side menu */}
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            {/* Team Name Header */}
+            <div className="text-center mb-6">
+              <h1 className="text-4xl font-bold text-white mb-2">
+                {currentTeam.name}
+              </h1>
+              <p className="text-white/80">{currentTeam.bio}</p>
+              
+              {/* Team Selection Dropdown if user has multiple teams */}
+              {userTeams.length > 1 && (
+                <div className="mt-4">
+                  <select 
+                    value={currentTeamId} 
+                    onChange={(e) => setCurrentTeamId(parseInt(e.target.value))}
+                    className="bg-black/50 text-white border border-white/20 rounded px-3 py-2"
+                  >
+                    {userTeams.map(team => (
+                      <option key={team.id} value={team.id}>{team.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+            
+            {/* Formation Controls */}
+            <div className="mb-8 flex justify-center items-center space-x-4">
+              <SportSelector 
+                sports={sports} 
+                selectedSport={selectedSport} 
+                onSelectSport={handleSportChange} 
+              />
+              <FormationSelector
+                formations={formations[selectedSport]}
+                selectedFormation={selectedFormation}
+                onSelectFormation={setSelectedFormation}
+              />
+            </div>
+            
+            {/* Soccer Field */}
+            <div className="w-full">
+              <SoccerField 
+                formation={selectedFormation} 
+                players={currentTeam.players}
+                reserves={currentTeam.reserves}
+                onPlayerMove={handlePlayerMove}
+                onPlayerClick={handlePlayerClick}
+                currentUserId={currentUserId}
+                teamCaptains={currentTeam.captains}
+              />
+            </div>
           </div>
-          <OptionsMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
         </div>
-        
-        <TeamLineup sport={selectedSport} formation={selectedFormation} />
         
         {/* Dialogs */}
         <TeamManagement
@@ -107,6 +186,8 @@ export default function SportsManagementApp() {
         <Profile
           isOpen={isProfileOpen}
           onClose={() => setIsProfileOpen(false)}
+          player={selectedPlayer}
+          currentUserId={currentUserId}
         />
         
         <MatchScheduling
@@ -117,11 +198,14 @@ export default function SportsManagementApp() {
         <MatchFinder
           isOpen={isMatchFinderOpen}
           onClose={() => setIsMatchFinderOpen(false)}
+          currentTeam={currentTeam}
         />
         
         <TeamProfile
           isOpen={isTeamProfileOpen}
           onClose={() => setIsTeamProfileOpen(false)}
+          team={currentTeam}
+          currentUserId={currentUserId}
         />
         
         <LeaguesManager
@@ -137,6 +221,14 @@ export default function SportsManagementApp() {
         <PickupGames
           isOpen={isPickupGamesOpen}
           onClose={() => setIsPickupGamesOpen(false)}
+        />
+        
+        {/* Notification System */}
+        <NotificationSystem
+          notifications={notifications}
+          onAccept={handleNotificationAccept}
+          onDecline={handleNotificationDecline}
+          onDismiss={handleNotificationDismiss}
         />
       </div>
       

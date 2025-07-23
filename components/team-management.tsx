@@ -16,7 +16,7 @@ import { X, Plus, Trophy, Medal, Star } from "lucide-react"
 interface TeamManagementProps {
   isOpen: boolean
   onClose: () => void
-  currentTeam: string
+  currentTeam: any
   players: Player[]
 }
 
@@ -26,8 +26,8 @@ export default function TeamManagement({
   currentTeam, 
   players 
 }: TeamManagementProps) {
-  const [teamName, setTeamName] = useState(currentTeam)
-  const [teamPlayers, setTeamPlayers] = useState(players)
+  const [teamName, setTeamName] = useState(currentTeam?.name || "")
+  const [teamPlayers, setTeamPlayers] = useState(currentTeam?.players || [])
   const [searchTerm, setSearchTerm] = useState("")
 
   const handleRemovePlayer = (playerId: number) => {

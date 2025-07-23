@@ -19,6 +19,7 @@ import { teams } from "@/lib/data"
 interface MatchFinderProps {
   isOpen: boolean
   onClose: () => void
+  currentTeam?: any
 }
 
 export default function MatchFinder({ isOpen, onClose }: MatchFinderProps) {

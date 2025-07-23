@@ -1,52 +1,251 @@
 import { Player, TeamData, MatchData, LeagueData, PickupGameData, FormationType } from './types';
 
+// Formation positions for different sports
+export const formationPositions = {
+  Soccer: {
+    "4-4-2": [
+      { top: "90%", left: "50%" },  // GK
+      { top: "75%", left: "20%" },  // LB
+      { top: "75%", left: "40%" },  // CB1
+      { top: "75%", left: "60%" },  // CB2
+      { top: "75%", left: "80%" },  // RB
+      { top: "55%", left: "15%" },  // LM
+      { top: "55%", left: "35%" },  // CM1
+      { top: "55%", left: "65%" },  // CM2
+      { top: "55%", left: "85%" },  // RM
+      { top: "30%", left: "40%" },  // ST1
+      { top: "30%", left: "60%" },  // ST2
+    ],
+    "4-3-3": [
+      { top: "90%", left: "50%" },  // GK
+      { top: "75%", left: "20%" },  // LB
+      { top: "75%", left: "40%" },  // CB1
+      { top: "75%", left: "60%" },  // CB2
+      { top: "75%", left: "80%" },  // RB
+      { top: "55%", left: "30%" },  // CM1
+      { top: "55%", left: "50%" },  // CM2
+      { top: "55%", left: "70%" },  // CM3
+      { top: "30%", left: "25%" },  // LW
+      { top: "30%", left: "50%" },  // ST
+      { top: "30%", left: "75%" },  // RW
+    ],
+    "3-5-2": [
+      { top: "90%", left: "50%" },  // GK
+      { top: "75%", left: "30%" },  // CB1
+      { top: "75%", left: "50%" },  // CB2
+      { top: "75%", left: "70%" },  // CB3
+      { top: "55%", left: "15%" },  // LWB
+      { top: "55%", left: "35%" },  // CM1
+      { top: "55%", left: "50%" },  // CM2
+      { top: "55%", left: "65%" },  // CM3
+      { top: "55%", left: "85%" },  // RWB
+      { top: "30%", left: "40%" },  // ST1
+      { top: "30%", left: "60%" },  // ST2
+    ],
+    "4-2-3-1": [
+      { top: "90%", left: "50%" },  // GK
+      { top: "75%", left: "20%" },  // LB
+      { top: "75%", left: "40%" },  // CB1
+      { top: "75%", left: "60%" },  // CB2
+      { top: "75%", left: "80%" },  // RB
+      { top: "60%", left: "40%" },  // CDM1
+      { top: "60%", left: "60%" },  // CDM2
+      { top: "40%", left: "25%" },  // LM
+      { top: "40%", left: "50%" },  // CAM
+      { top: "40%", left: "75%" },  // RM
+      { top: "25%", left: "50%" },  // ST
+    ]
+  }
+};
+
 // Players data
 export const players: Player[] = [
-  { id: 1, name: "John Doe", position: "Forward", avatar: "/placeholder.svg", isCaptain: true },
-  { id: 2, name: "Jane Smith", position: "Midfielder", avatar: "/placeholder.svg" },
-  { id: 3, name: "Mike Johnson", position: "Defender", avatar: "/placeholder.svg" },
-  { id: 4, name: "Sarah Williams", position: "Goalkeeper", avatar: "/placeholder.svg" },
-  { id: 5, name: "Tom Brown", position: "Forward", avatar: "/placeholder.svg" },
-  { id: 6, name: "Emily Davis", position: "Midfielder", avatar: "/placeholder.svg" },
-  { id: 7, name: "David Wilson", position: "Defender", avatar: "/placeholder.svg" },
-  { id: 8, name: "Lisa Taylor", position: "Midfielder", avatar: "/placeholder.svg" },
-  { id: 9, name: "Robert Martinez", position: "Forward", avatar: "/placeholder.svg" },
-  { id: 10, name: "Jessica Anderson", position: "Defender", avatar: "/placeholder.svg" },
-  { id: 11, name: "Michael Thomas", position: "Goalkeeper", avatar: "/placeholder.svg" },
-  { id: 12, name: "John Smith", position: "GK", avatar: "/placeholder.svg", isCaptain: true },
-  { id: 13, name: "Mike Johnson", position: "DEF", avatar: "/placeholder.svg" },
-  { id: 14, name: "Tom Wilson", position: "MID", avatar: "/placeholder.svg" },
-  { id: 15, name: "James Brown", position: "FWD", avatar: "/placeholder.svg" },
+  { 
+    id: 1, 
+    name: "John Doe", 
+    firstName: "John",
+    position: "Forward", 
+    preferredPositions: ["Forward", "Midfielder"], 
+    avatar: "/placeholder.svg", 
+    isCaptain: true,
+    teams: [1],
+    bio: "Passionate soccer player with excellent scoring ability.",
+    email: "john.doe@example.com",
+    phone: "+1 (555) 123-4567",
+    location: "New York, USA",
+    stats: { matches: 42, goals: 28, assists: 15, rating: 4.2 }
+  },
+  { 
+    id: 2, 
+    name: "Jane Smith", 
+    firstName: "Jane",
+    position: "Midfielder", 
+    preferredPositions: ["Midfielder", "Defender"], 
+    avatar: "/placeholder.svg",
+    teams: [1],
+    bio: "Creative midfielder with excellent passing skills.",
+    email: "jane.smith@example.com",
+    stats: { matches: 38, goals: 8, assists: 22, rating: 4.0 }
+  },
+  { 
+    id: 3, 
+    name: "Mike Johnson", 
+    firstName: "Mike",
+    position: "Defender", 
+    preferredPositions: ["Defender"], 
+    avatar: "/placeholder.svg",
+    teams: [1],
+    bio: "Solid defender with strong aerial ability.",
+    email: "mike.johnson@example.com",
+    stats: { matches: 40, goals: 3, assists: 8, rating: 3.8 }
+  },
+  { 
+    id: 4, 
+    name: "Sarah Williams", 
+    firstName: "Sarah",
+    position: "Goalkeeper", 
+    preferredPositions: ["Goalkeeper"], 
+    avatar: "/placeholder.svg",
+    teams: [1],
+    bio: "Reliable goalkeeper with quick reflexes.",
+    email: "sarah.williams@example.com",
+    stats: { matches: 35, goals: 0, assists: 2, rating: 4.1 }
+  },
+  { 
+    id: 5, 
+    name: "Tom Brown", 
+    firstName: "Tom",
+    position: "Forward", 
+    preferredPositions: ["Forward"], 
+    avatar: "/placeholder.svg",
+    teams: [1],
+    bio: "Fast striker with great finishing ability.",
+    email: "tom.brown@example.com",
+    stats: { matches: 30, goals: 18, assists: 7, rating: 3.9 }
+  },
+  { 
+    id: 6, 
+    name: "Emily Davis", 
+    firstName: "Emily",
+    position: "Midfielder", 
+    preferredPositions: ["Midfielder", "Forward"], 
+    avatar: "/placeholder.svg",
+    teams: [1],
+    bio: "Versatile player who can play multiple positions.",
+    email: "emily.davis@example.com",
+    stats: { matches: 36, goals: 12, assists: 14, rating: 3.7 }
+  },
+  { 
+    id: 7, 
+    name: "David Wilson", 
+    firstName: "David",
+    position: "Defender", 
+    preferredPositions: ["Defender", "Midfielder"], 
+    avatar: "/placeholder.svg",
+    teams: [2],
+    bio: "Strong defender who can also play in midfield.",
+    email: "david.wilson@example.com",
+    stats: { matches: 32, goals: 4, assists: 9, rating: 3.6 }
+  },
+  { 
+    id: 8, 
+    name: "Lisa Taylor", 
+    firstName: "Lisa",
+    position: "Midfielder", 
+    preferredPositions: ["Midfielder"], 
+    avatar: "/placeholder.svg",
+    teams: [2],
+    bio: "Box-to-box midfielder with great work rate.",
+    email: "lisa.taylor@example.com",
+    stats: { matches: 34, goals: 7, assists: 11, rating: 3.8 }
+  },
+  { 
+    id: 9, 
+    name: "Robert Martinez", 
+    firstName: "Robert",
+    position: "Forward", 
+    preferredPositions: ["Forward"], 
+    avatar: "/placeholder.svg",
+    teams: [2],
+    bio: "Clinical finisher with great positioning.",
+    email: "robert.martinez@example.com",
+    stats: { matches: 29, goals: 21, assists: 6, rating: 4.0 }
+  },
+  { 
+    id: 10, 
+    name: "Jessica Anderson", 
+    firstName: "Jessica",
+    position: "Defender", 
+    preferredPositions: ["Defender"], 
+    avatar: "/placeholder.svg",
+    teams: [2],
+    bio: "Tough defender with leadership qualities.",
+    email: "jessica.anderson@example.com",
+    stats: { matches: 31, goals: 2, assists: 5, rating: 3.7 }
+  },
+  { 
+    id: 11, 
+    name: "Michael Thomas", 
+    firstName: "Michael",
+    position: "Goalkeeper", 
+    preferredPositions: ["Goalkeeper"], 
+    avatar: "/placeholder.svg",
+    teams: [2],
+    bio: "Experienced goalkeeper with excellent shot-stopping.",
+    email: "michael.thomas@example.com",
+    stats: { matches: 33, goals: 0, assists: 1, rating: 3.9 }
+  },
 ];
 
 // Teams data
 export const teams: TeamData[] = [
   {
     id: 1,
-    name: "Your Team",
+    name: "John's Team",
     logo: "/placeholder.svg",
-    players: players.slice(0, 11),
+    bio: "A competitive team focused on attacking football and teamwork.",
+    players: players.slice(0, 6),
+    reserves: [],
+    captains: [1],
+    formation: "4-4-2",
     wins: 5,
     losses: 2,
-    draws: 1
+    draws: 1,
+    createdBy: 1,
+    location: "New York, USA",
+    isPrivate: false
   },
   {
     id: 2,
     name: "Rival FC",
     logo: "/placeholder.svg",
-    players: players.slice(5, 16),
+    bio: "An experienced team with a strong defensive style.",
+    players: players.slice(6, 11),
+    reserves: [],
+    captains: [7],
+    formation: "4-3-3",
     wins: 4,
     losses: 3,
-    draws: 1
+    draws: 1,
+    createdBy: 7,
+    location: "Brooklyn, NY",
+    isPrivate: false
   },
   {
     id: 3,
     name: "City United",
     logo: "/placeholder.svg",
-    players: players.slice(2, 13),
+    bio: "A young and dynamic team with fast-paced gameplay.",
+    players: [],
+    reserves: [],
+    captains: [],
+    formation: "3-5-2",
     wins: 6,
     losses: 1,
-    draws: 1
+    draws: 1,
+    createdBy: 0,
+    location: "Manhattan, NY",
+    isPrivate: false
   }
 ];
 

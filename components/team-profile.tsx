@@ -15,10 +15,14 @@ import { teams } from "@/lib/data"
 interface TeamProfileProps {
   isOpen: boolean
   onClose: () => void
+  team?: any
+  currentUserId?: number
 }
 
-export default function TeamProfile({ isOpen, onClose }: TeamProfileProps) {
-  const team = teams[0] // Your team
+export default function TeamProfile({ isOpen, onClose, team, currentUserId }: TeamProfileProps) {
+  if (!team) return null
+  
+  const isCurrentUserCaptain = team.captains?.includes(currentUserId)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

@@ -5,6 +5,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,16 +19,33 @@ import {
 interface ProfileProps {
   isOpen: boolean
   onClose: () => void
+  player?: any
+  currentUserId?: number
 }
 
-export default function Profile({ isOpen, onClose }: ProfileProps) {
+export default function Profile({ isOpen, onClose, player, currentUserId }: ProfileProps) {
+  const isOwnProfile = player?.id === currentUserId
+  const displayPlayer = player || {
+    id: currentUserId || 1,
+    name: "John Doe",
+    firstName: "John",
+    position: "Forward",
+    preferredPositions: ["Forward", "Midfielder"],
+    bio: "Passionate soccer player with excellent scoring ability.",
+    email: "john.doe@example.com",
+    phone: "+1 (555) 123-4567",
+    location: "New York, USA",
+    stats: { matches: 42, goals: 28, assists: 15, rating: 4.2 }
+  }
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-black/90 text-white backdrop-blur-sm border-gray-800 max-w-4xl">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">My Profile</DialogTitle>
+          <DialogTitle className="text-2xl font-bold">
+            {isOwnProfile ? "My Profile" : `${displayPlayer.name}'s Profile`}
+          </DialogTitle>
           <DialogDescription className="text-gray-400">
-            View and edit your player profile
+            {isOwnProfile ? "View and edit your player profile" : "View player profile"}
           </DialogDescription>
         </DialogHeader>
 
@@ -36,7 +54,7 @@ export default function Profile({ isOpen, onClose }: ProfileProps) {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="stats">Stats</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
+            {isOwnProfile && <TabsTrigger value="settings">Settings</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -55,35 +73,38 @@ export default function Profile({ isOpen, onClose }: ProfileProps) {
                     <Camera className="h-4 w-4" />
                   </Button>
                 </div>
-                <h2 className="text-xl font-bold">John Doe</h2>
+                <h2 className="text-xl font-bold">{displayPlayer.name}</h2>
                 <div className="flex items-center space-x-1">
                   <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                   <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                   <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                   <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                   <Star className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-400 ml-1">(4.2)</span>
+                  <span className="text-sm text-gray-400 ml-1">({displayPlayer.stats?.rating || 4.0})</span>
                 </div>
                 <div className="flex flex-wrap justify-center gap-2 mt-2">
-                  <Badge>Forward</Badge>
-                  <Badge>Team Captain</Badge>
-                  <Badge>Striker</Badge>
+                  <Badge>{displayPlayer.position}</Badge>
+                  {displayPlayer.isCaptain && <Badge>Team Captain</Badge>}
+                  {displayPlayer.preferredPositions?.map(pos => 
+                    pos !== displayPlayer.position && (
+                      <Badge key={pos} variant="outline">{pos}</Badge>
+                    )
+                  )}
                 </div>
               </div>
 
               <div className="flex-1 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InfoItem icon={<User />} label="Full Name" value="John Doe" />
-                  <InfoItem icon={<Mail />} label="Email" value="john.doe@example.com" />
-                  <InfoItem icon={<Phone />} label="Phone" value="+1 (555) 123-4567" />
-                  <InfoItem icon={<Globe />} label="Location" value="New York, USA" />
+                  <InfoItem icon={<User />} label="Full Name" value={displayPlayer.name} />
+                  {displayPlayer.email && <InfoItem icon={<Mail />} label="Email" value={displayPlayer.email} />}
+                  {displayPlayer.phone && <InfoItem icon={<Phone />} label="Phone" value={displayPlayer.phone} />}
+                  {displayPlayer.location && <InfoItem icon={<Globe />} label="Location" value={displayPlayer.location} />}
                 </div>
 
                 <div className="bg-gray-800/30 rounded-lg p-4 space-y-2">
                   <h3 className="text-lg font-semibold">Bio</h3>
                   <p className="text-gray-300">
-                    Passionate soccer player with 10+ years of experience. Specializing in forward positions
-                    with a strong scoring record. Team captain for 3 seasons with excellent leadership skills.
+                    {displayPlayer.bio || "No bio available."}
                   </p>
                 </div>
 
@@ -110,9 +131,9 @@ export default function Profile({ isOpen, onClose }: ProfileProps) {
 
           <TabsContent value="stats" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <StatCard title="Matches" value="42" icon={<Calendar className="h-5 w-5 text-blue-500" />} />
-              <StatCard title="Goals" value="28" icon={<Trophy className="h-5 w-5 text-green-500" />} />
-              <StatCard title="Assists" value="15" icon={<Medal className="h-5 w-5 text-yellow-500" />} />
+              <StatCard title="Matches" value={displayPlayer.stats?.matches?.toString() || "0"} icon={<Calendar className="h-5 w-5 text-blue-500" />} />
+              <StatCard title="Goals" value={displayPlayer.stats?.goals?.toString() || "0"} icon={<Trophy className="h-5 w-5 text-green-500" />} />
+              <StatCard title="Assists" value={displayPlayer.stats?.assists?.toString() || "0"} icon={<Medal className="h-5 w-5 text-yellow-500" />} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
