@@ -387,12 +387,6 @@ export const formations = {
     { x: 48, y: 23, number: 11, name: "ST" },
   ],
 } as const;
-
-// Formation positions for different sports
-export const formationPositions = {
-  Soccer: {
-    "4-4-2": [
-      { top: "85%", left: "50%" }, // GK
       { top: "65%", left: "20%" }, // RB
       { top: "65%", left: "40%" }, // CB
       { top: "65%", left: "60%" }, // CB

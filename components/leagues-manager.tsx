@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription 
 } from "@/components/ui/dialog"
@@ -13,7 +13,8 @@ import {
   Trophy, Calendar, Search, Users, Shield, 
   ChevronRight, Plus, BarChart2
 } from "lucide-react"
-import { leagues, teams } from "@/lib/data"
+import { leagues as mockLeagues, teams } from "@/lib/data"
+import { LeagueData } from "@/lib/types";
 
 interface LeaguesManagerProps {
   isOpen: boolean
@@ -22,7 +23,42 @@ interface LeaguesManagerProps {
 
 export default function LeaguesManager({ isOpen, onClose }: LeaguesManagerProps) {
   const [searchTerm, setSearchTerm] = useState("")
+  const [leagues, setLeagues] = useState<LeagueData[]>(mockLeagues);
   const [selectedLeague, setSelectedLeague] = useState(leagues[0])
+  const [newLeague, setNewLeague] = useState({
+    name: "",
+    sport: "Soccer",
+    startDate: "",
+    endDate: "",
+    description: "",
+    teams: [],
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch("http://localhost:3001/api/leagues")
+        .then((res) => res.json())
+        .then((data) => {
+          setLeagues(data);
+          setSelectedLeague(data[0]);
+        });
+    }
+  }, [isOpen]);
+
+  const handleCreateLeague = () => {
+    fetch("http://localhost:3001/api/leagues", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(newLeague),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setLeagues([...leagues, data]);
+        onClose();
+      });
+  };
 
   const filteredLeagues = leagues.filter(league => 
     league.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -61,7 +97,12 @@ export default function LeaguesManager({ isOpen, onClose }: LeaguesManagerProps)
                 <LeagueCard 
                   key={league.id}
                   league={league}
-                  onClick={() => setSelectedLeague(league)}
+                  onClick={() => {
+                    setSelectedLeague(league);
+                    // Switch to the "My Leagues" tab
+                    const trigger = document.querySelector('button[data-state="inactive"][value="my-leagues"]');
+                    if (trigger) (trigger as HTMLButtonElement).click();
+                  }}
                 />
               ))}
             </div>
@@ -118,30 +159,51 @@ export default function LeaguesManager({ isOpen, onClose }: LeaguesManagerProps)
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">League Name</label>
-                    <Input className="bg-gray-800/50 border-gray-700" placeholder="Enter league name" />
+                    <Input
+                      className="bg-gray-800/50 border-gray-700"
+                      placeholder="Enter league name"
+                      value={newLeague.name}
+                      onChange={(e) => setNewLeague({ ...newLeague, name: e.target.value })}
+                    />
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Sport</label>
-                    <Input className="bg-gray-800/50 border-gray-700" defaultValue="Soccer" />
+                    <Input
+                      className="bg-gray-800/50 border-gray-700"
+                      value={newLeague.sport}
+                      onChange={(e) => setNewLeague({ ...newLeague, sport: e.target.value })}
+                    />
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Start Date</label>
-                    <Input className="bg-gray-800/50 border-gray-700" type="date" />
+                    <Input
+                      className="bg-gray-800/50 border-gray-700"
+                      type="date"
+                      value={newLeague.startDate}
+                      onChange={(e) => setNewLeague({ ...newLeague, startDate: e.target.value })}
+                    />
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium">End Date</label>
-                    <Input className="bg-gray-800/50 border-gray-700" type="date" />
+                    <Input
+                      className="bg-gray-800/50 border-gray-700"
+                      type="date"
+                      value={newLeague.endDate}
+                      onChange={(e) => setNewLeague({ ...newLeague, endDate: e.target.value })}
+                    />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Description</label>
-                  <textarea 
+                  <textarea
                     className="w-full bg-gray-800/50 border-gray-700 rounded-md p-2 min-h-[100px]"
                     placeholder="Enter league description"
+                    value={newLeague.description}
+                    onChange={(e) => setNewLeague({ ...newLeague, description: e.target.value })}
                   />
                 </div>
                 
@@ -179,10 +241,10 @@ export default function LeaguesManager({ isOpen, onClose }: LeaguesManagerProps)
                 </div>
                 
                 <div className="flex justify-end space-x-2 mt-4">
-                  <Button variant="outline" className="bg-gray-800/50 border-gray-700">
+                  <Button variant="outline" className="bg-gray-800/50 border-gray-700" onClick={onClose}>
                     Cancel
                   </Button>
-                  <Button>
+                  <Button onClick={handleCreateLeague}>
                     Create League
                   </Button>
                 </div>
@@ -242,7 +304,7 @@ interface LeagueDetailCardProps {
   league: any
 }
 
-function LeagueDetailCard({ league }: LeagueDetailCardProps) {
+function LeagueDetailCard({ league }: { league: LeagueData }) {
   return (
     <div className="bg-gray-800/30 rounded-lg p-4">
       <div className="flex justify-between items-start">
