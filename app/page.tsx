@@ -1,10 +1,6 @@
-import SportsManagementApp from "@/components/sports-management-app"
+import EnhancedSportsApp from "@/components/enhanced-sports-app"
 
 export default function Home() {
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-900 to-black text-white">
-      <SportsManagementApp />
-    </main>
-  )
+  return <EnhancedSportsApp />
 }
 

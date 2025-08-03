@@ -1,5 +1,6 @@
 "use client"
 
+import React, { useState } from 'react'
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription 
 } from "@/components/ui/dialog"
@@ -11,9 +12,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
+import { apiClient } from "@/lib/api-client"
 import { 
   Trophy, Medal, Star, Calendar, MapPin, Clock, 
-  User, Mail, Phone, Globe, Camera, Edit
+  User, Mail, Phone, Globe, Camera, Edit, Loader2
 } from "lucide-react"
 
 interface ProfileProps {
@@ -24,9 +27,23 @@ interface ProfileProps {
 }
 
 export default function Profile({ isOpen, onClose, player, currentUserId }: ProfileProps) {
+  const { toast } = useToast()
+  const [isUploading, setIsUploading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [profileData, setProfileData] = useState({
+    name: "",
+    firstName: "",
+    email: "",
+    phone: "",
+    location: "",
+    bio: "",
+    position: "",
+    preferredPositions: [] as string[]
+  })
+
   const isOwnProfile = player?.id === currentUserId
   const displayPlayer = player || {
-    id: currentUserId || 1,
+    id: currentUserId || "1",
     name: "John Doe",
     firstName: "John",
     position: "Forward",
@@ -35,7 +52,73 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
     email: "john.doe@example.com",
     phone: "+1 (555) 123-4567",
     location: "New York, USA",
+    image: "/placeholder.svg",
     stats: { matches: 42, goals: 28, assists: 15, rating: 4.2 }
+  }
+
+  React.useEffect(() => {
+    if (displayPlayer) {
+      setProfileData({
+        name: displayPlayer.name || "",
+        firstName: displayPlayer.firstName || "",
+        email: displayPlayer.email || "",
+        phone: displayPlayer.phone || "",
+        location: displayPlayer.location || "",
+        bio: displayPlayer.bio || "",
+        position: displayPlayer.position || "",
+        preferredPositions: displayPlayer.preferredPositions || []
+      })
+    }
+  }, [displayPlayer])
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    try {
+      const result = await apiClient.uploadFile(file, 'avatar')
+      
+      // Update user profile with new avatar
+      await apiClient.updatePlayer({ image: result.url })
+      
+      toast({
+        title: "Success",
+        description: "Profile picture updated successfully"
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to upload profile picture",
+        variant: "destructive"
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!isOwnProfile) return
+
+    setIsSaving(true)
+    try {
+      await apiClient.updatePlayer(profileData)
+      
+      toast({
+        title: "Success",
+        description: "Profile updated successfully"
+      })
+      
+      onClose()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -62,16 +145,27 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
               <div className="flex flex-col items-center space-y-3">
                 <div className="relative">
                   <Avatar className="h-32 w-32">
-                    <AvatarImage src="/placeholder.svg" />
-                    <AvatarFallback>JD</AvatarFallback>
+                    <AvatarImage src={displayPlayer.image || "/placeholder.svg"} />
+                    <AvatarFallback>{displayPlayer.firstName?.[0] || 'U'}{displayPlayer.name?.split(' ')[1]?.[0] || ''}</AvatarFallback>
                   </Avatar>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    className="absolute bottom-0 right-0 rounded-full bg-blue-600 border-none hover:bg-blue-700"
-                  >
-                    <Camera className="h-4 w-4" />
-                  </Button>
+                  {isOwnProfile && (
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="absolute bottom-0 right-0 rounded-full bg-blue-600 border-none hover:bg-blue-700"
+                      onClick={() => document.getElementById('avatar-upload')?.click()}
+                      disabled={isUploading}
+                    >
+                      {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                    </Button>
+                  )}
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                  />
                 </div>
                 <h2 className="text-xl font-bold">{displayPlayer.name}</h2>
                 <div className="flex items-center space-x-1">
@@ -222,7 +316,17 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                   <Label htmlFor="full-name">Full Name</Label>
                   <Input
                     id="full-name"
-                    defaultValue="John Doe"
+                    value={profileData.name}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
+                    className="bg-gray-800/50 border-gray-700"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="first-name">First Name</Label>
+                  <Input
+                    id="first-name"
+                    value={profileData.firstName}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
                     className="bg-gray-800/50 border-gray-700"
                   />
                 </div>
@@ -230,7 +334,8 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
-                    defaultValue="john.doe@example.com"
+                    value={profileData.email}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
                     className="bg-gray-800/50 border-gray-700"
                   />
                 </div>
@@ -238,7 +343,8 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                   <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
-                    defaultValue="+1 (555) 123-4567"
+                    value={profileData.phone}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
                     className="bg-gray-800/50 border-gray-700"
                   />
                 </div>
@@ -246,7 +352,8 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                   <Label htmlFor="location">Location</Label>
                   <Input
                     id="location"
-                    defaultValue="New York, USA"
+                    value={profileData.location}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, location: e.target.value }))}
                     className="bg-gray-800/50 border-gray-700"
                   />
                 </div>
@@ -256,7 +363,8 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                 <Label htmlFor="bio">Bio</Label>
                 <Textarea
                   id="bio"
-                  defaultValue="Passionate soccer player with 10+ years of experience. Specializing in forward positions with a strong scoring record. Team captain for 3 seasons with excellent leadership skills."
+                  value={profileData.bio}
+                  onChange={(e) => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
                   className="bg-gray-800/50 border-gray-700 min-h-[100px]"
                 />
               </div>
@@ -264,31 +372,44 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="primary-position">Primary Position</Label>
-                  <Select defaultValue="forward">
+                  <Select 
+                    value={profileData.position} 
+                    onValueChange={(value) => setProfileData(prev => ({ ...prev, position: value }))}
+                  >
                     <SelectTrigger className="bg-gray-800/50 border-gray-700">
                       <SelectValue placeholder="Select position" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="forward">Forward</SelectItem>
-                      <SelectItem value="midfielder">Midfielder</SelectItem>
-                      <SelectItem value="defender">Defender</SelectItem>
-                      <SelectItem value="goalkeeper">Goalkeeper</SelectItem>
+                      <SelectItem value="Forward">Forward</SelectItem>
+                      <SelectItem value="Midfielder">Midfielder</SelectItem>
+                      <SelectItem value="Defender">Defender</SelectItem>
+                      <SelectItem value="Goalkeeper">Goalkeeper</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="secondary-position">Secondary Position</Label>
-                  <Select defaultValue="midfielder">
-                    <SelectTrigger className="bg-gray-800/50 border-gray-700">
-                      <SelectValue placeholder="Select position" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="forward">Forward</SelectItem>
-                      <SelectItem value="midfielder">Midfielder</SelectItem>
-                      <SelectItem value="defender">Defender</SelectItem>
-                      <SelectItem value="goalkeeper">Goalkeeper</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Preferred Positions</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Forward', 'Midfielder', 'Defender', 'Goalkeeper'].map(pos => (
+                      <Button
+                        key={pos}
+                        type="button"
+                        variant={profileData.preferredPositions.includes(pos) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          setProfileData(prev => ({
+                            ...prev,
+                            preferredPositions: prev.preferredPositions.includes(pos)
+                              ? prev.preferredPositions.filter(p => p !== pos)
+                              : [...prev.preferredPositions, pos]
+                          }))
+                        }}
+                        className="text-xs"
+                      >
+                        {pos}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -299,7 +420,18 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
           <Button variant="outline" onClick={onClose} className="bg-gray-800/50 border-gray-700">
             Cancel
           </Button>
-          <Button onClick={onClose}>Save Changes</Button>
+          {isOwnProfile && (
+            <Button onClick={handleSaveProfile} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
