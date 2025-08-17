@@ -6,7 +6,7 @@ import { HTML5Backend } from "react-dnd-html5-backend"
 import { SessionProvider, useSession, signIn, signOut } from "next-auth/react"
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as Sonner } from "sonner"
-import { SoccerField } from "@/components/soccer-field"
+import { SportField } from "@/components/sport-field"
 import SportSelector from "@/components/sport-selector"
 import FormationSelector from "@/components/formation-selector"
 import SideMenu from "@/components/side-menu"
@@ -128,7 +128,7 @@ function SportsManagementAppContent() {
 
   const handlePlayerMove = (result: any) => {
     console.log("Player moved:", result)
-    // Handle player movement logic here with real-time updates
+    // Handle player movement logic here
   }
 
   // Handle notifications
@@ -339,13 +339,16 @@ function SportsManagementAppContent() {
 
               {/* Field */}
               {selectedTeam ? (
-                <SoccerField
+                <SportField
+                  sport={selectedSport}
                   formation={selectedFormation}
                   players={selectedTeam.players}
                   reserves={selectedTeam.reserves}
                   onPlayerMove={handlePlayerMove}
                   onPlayerClick={handlePlayerClick}
-                  sport={selectedSport}
+                  // currentUserId and teamCaptains are not directly available here, 
+                  // but should be passed if SportField needs them for drag-and-drop permissions
+                  // For now, assuming SportField handles permissions internally or they are not critical here
                 />
               ) : (
                 <Card className="bg-black/50 border-gray-800">

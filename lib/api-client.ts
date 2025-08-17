@@ -66,11 +66,15 @@ class ApiClient {
     search?: string
     position?: string
     location?: string
-  }) {
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ data: any[]; totalPages: number }> {
     const searchParams = new URLSearchParams()
     if (params?.search) searchParams.set('search', params.search)
     if (params?.position) searchParams.set('position', params.position)
     if (params?.location) searchParams.set('location', params.location)
+    if (params?.page) searchParams.set('page', params.page.toString())
+    if (params?.pageSize) searchParams.set('pageSize', params.pageSize.toString())
     
     const query = searchParams.toString()
     return this.get(`/players${query ? `?${query}` : ''}`)
@@ -129,11 +133,25 @@ class ApiClient {
     teamId?: string
     status?: string
     date?: string
-  }) {
+    sport?: string
+    ageGroup?: string
+    latitude?: number
+    longitude?: number
+    radius?: number // km
+    page?: number;
+    pageSize?: number;
+  }): Promise<any> {
     const searchParams = new URLSearchParams()
     if (params?.teamId) searchParams.set('teamId', params.teamId)
     if (params?.status) searchParams.set('status', params.status)
     if (params?.date) searchParams.set('date', params.date)
+    if (params?.sport) searchParams.set('sport', params.sport)
+    if (params?.ageGroup) searchParams.set('ageGroup', params.ageGroup)
+    if (params?.latitude !== undefined) searchParams.set('latitude', String(params.latitude))
+    if (params?.longitude !== undefined) searchParams.set('longitude', String(params.longitude))
+    if (params?.radius !== undefined) searchParams.set('radius', String(params.radius))
+    if (params?.page) searchParams.set('page', params.page.toString())
+    if (params?.pageSize) searchParams.set('pageSize', params.pageSize.toString())
     
     const query = searchParams.toString()
     return this.get(`/matches${query ? `?${query}` : ''}`)
@@ -145,6 +163,23 @@ class ApiClient {
 
   async updateMatch(id: string, data: any) {
     return this.put(`/matches/${id}`, data)
+  }
+
+  // Leagues API
+  async getLeagues(params?: {
+    page?: number;
+    pageSize?: number;
+  }): Promise<{ data: any[]; totalPages: number }> {
+    const searchParams = new URLSearchParams()
+    if (params?.page) searchParams.set('page', params.page.toString())
+    if (params?.pageSize) searchParams.set('pageSize', params.pageSize.toString())
+    
+    const query = searchParams.toString()
+    return this.get(`/leagues${query ? `?${query}` : ''}`)
+  }
+
+  async createLeague(data: any) {
+    return this.post('/leagues', data);
   }
 
   // Invites API
@@ -170,6 +205,37 @@ class ApiClient {
     return this.post('/invites/match', data)
   }
 
+  async getMatchRequests(teamId?: string) {
+    const query = teamId ? `?teamId=${teamId}` : '';
+    return this.get(`/invites/match${query}`);
+  }
+
+  // Friends API
+  async getFriends() {
+    return this.get('/friends');
+  }
+
+  async sendFriendRequest(toUserId: number) {
+    return this.post('/friends/requests', { toUserId });
+  }
+
+  async getFriendRequests() {
+    return this.get('/friends/requests');
+  }
+
+  async updateFriendshipStatus(friendshipId: string, status: 'accepted' | 'declined') {
+    return this.put(`/friends/${friendshipId}`, { status });
+  }
+
+  async getFriendshipStatus(targetUserId: number): Promise<'not_friends' | 'friends' | 'pending_sent' | 'pending_received'> {
+    return this.get(`/friends/status/${targetUserId}`);
+  }
+
+  // Player Ratings API
+  async submitPlayerRating(playerId: number, rating: number, review?: string) {
+    return this.post(`/players/${playerId}/ratings`, { rating, review });
+  }
+
   // Notifications API
   async getNotifications() {
     return this.get('/notifications')
@@ -177,6 +243,10 @@ class ApiClient {
 
   async markNotificationRead(id: string) {
     return this.put(`/notifications/${id}`, { isRead: true })
+  }
+
+  async markAllNotificationsRead() {
+    return this.put('/notifications/mark-all-read', {});
   }
 
   // Pickup Games API
@@ -212,6 +282,11 @@ class ApiClient {
       method: 'POST',
       body: formData,
     }).then(res => res.json())
+  }
+
+  // Auth API
+  async registerUser(data: any) {
+    return this.post('/auth/register', data)
   }
 }
 

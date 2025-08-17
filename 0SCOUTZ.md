@@ -1,3 +1,8 @@
+08/12 stopped in ZENCODER (working on entirety below) 
+
+-----------------##
+
+
 
 ### Backend
 1. **Event Aggregation** ([`services/eventAggregator.js`](services/eventAggregator.js)):

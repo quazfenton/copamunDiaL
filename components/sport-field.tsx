@@ -8,9 +8,12 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { formationPositions } from "@/lib/data";
+import { getFieldLayout } from "@/lib/field-layouts";
+import { useIsMobile } from "@/hooks/use-mobile";
 
-interface SoccerFieldProps {
+interface SportFieldProps {
   className?: string;
+  sport: string;
   formation: string;
   players: Player[];
   reserves?: Player[];
@@ -26,18 +29,21 @@ interface PositionSlot {
   position: { top: string; left: string };
 }
 
-export function SoccerField({ 
-  className, 
-  formation, 
-  players, 
+export function SportField({
+  className,
+  sport,
+  formation,
+  players,
   reserves = [],
   onPlayerMove,
   onPlayerClick,
   currentUserId = 1,
   teamCaptains = [1]
-}: SoccerFieldProps) {
+}: SportFieldProps) {
+  const FieldLayout = getFieldLayout(sport);
+
   // Create position slots for the current formation
-  const positions = formationPositions.Soccer[formation as keyof typeof formationPositions.Soccer] || formationPositions.Soccer["4-4-2"];
+  const positions = formationPositions[sport]?.[formation] || formationPositions.Soccer["4-4-2"];
   
   const [positionSlots, setPositionSlots] = useState<PositionSlot[]>(() => {
     return positions.map((pos, index) => ({
@@ -117,38 +123,14 @@ export function SoccerField({
           <h2 className="text-2xl font-bold text-white">Formation: {formation}</h2>
         </div>
         
-        {/* Soccer Field */}
+        {/* Sport Field */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
-          className="relative w-full aspect-[2/3] rounded-lg overflow-hidden border-2 border-white/20"
-          style={{
-            background: `
-              linear-gradient(90deg, 
-                #2a5a27 0%, 
-                #326b2e 25%, 
-                #2a5a27 50%, 
-                #326b2e 75%, 
-                #2a5a27 100%
-              )
-            `,
-            backgroundSize: "100px 100%"
-          }}
+          className="relative w-full aspect-[2/3] rounded-lg overflow-hidden"
         >
-          {/* Field Lines */}
-          <div className="absolute inset-0">
-            {/* Center Line */}
-            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/60 transform -translate-y-1/2" />
-            {/* Center Circle */}
-            <div className="absolute top-1/2 left-1/2 w-20 h-20 border border-white/60 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
-            {/* Penalty Areas */}
-            <div className="absolute top-2 left-1/4 right-1/4 h-16 border border-white/60" />
-            <div className="absolute bottom-2 left-1/4 right-1/4 h-16 border border-white/60" />
-            {/* Goal Areas */}
-            <div className="absolute top-2 left-2/5 right-2/5 h-8 border border-white/60" />
-            <div className="absolute bottom-2 left-2/5 right-2/5 h-8 border border-white/60" />
-          </div>
+          <FieldLayout className="absolute inset-0" />
 
           {/* Position Slots */}
           {positionSlots.map((slot, index) => (
@@ -239,7 +221,7 @@ export function SoccerField({
                         )}
                         onClick={() => onPlayerClick?.(player)}
                       >
-                        <PlayerPosition player={player} size="sm" />
+                        <PlayerPosition player={player} />
                       </div>
                     )}
                   </Draggable>
@@ -271,9 +253,10 @@ interface PlayerPositionProps {
 }
 
 function PlayerPosition({ player, size = "md" }: PlayerPositionProps) {
+  const isMobile = useIsMobile();
   const sizeClasses = {
-    sm: "w-12 h-12",
-    md: "w-14 h-14"
+    sm: isMobile ? "w-10 h-10" : "w-12 h-12",
+    md: isMobile ? "w-12 h-12" : "w-14 h-14"
   };
 
   return (
@@ -303,4 +286,4 @@ function PlayerPosition({ player, size = "md" }: PlayerPositionProps) {
   );
 }
 
-export default SoccerField;
+export default SportField;

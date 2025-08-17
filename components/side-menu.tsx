@@ -4,9 +4,10 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
   Users, Calendar, Search, UserPlus, User, Trophy, 
-  BarChart2, MapPin, Menu, X, Home
+  BarChart2, MapPin, Menu, X, Home, Bell, PlusSquare, Users as FriendsIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 interface SideMenuProps {
   onMyTeamClick: () => void
@@ -19,6 +20,11 @@ interface SideMenuProps {
   onCalendarClick: () => void
   onPickupGamesClick: () => void
   onHomeClick: () => void
+  onNotificationsClick: () => void;
+  unreadNotificationsCount: number;
+  isCaptain: boolean;
+  onBuildFormationClick: () => void;
+  onFriendsClick: () => void;
 }
 
 export default function SideMenu({
@@ -31,38 +37,55 @@ export default function SideMenu({
   onLeaguesClick,
   onCalendarClick,
   onPickupGamesClick,
-  onHomeClick
+  onHomeClick,
+  onNotificationsClick,
+  unreadNotificationsCount,
+  isCaptain,
+  onBuildFormationClick,
+  onFriendsClick
 }: SideMenuProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const isMobile = useIsMobile();
+
+  const toggleMenu = () => {
+    setIsExpanded(prev => !prev);
+  };
 
   return (
     <motion.div
-      initial={{ width: "4rem" }}
-      animate={{ width: isExpanded ? "16rem" : "4rem" }}
+      initial={{ width: isMobile ? "0rem" : "4rem" }}
+      animate={{ width: isMobile ? (isExpanded ? "16rem" : "0rem") : (isExpanded ? "16rem" : "4rem") }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className="fixed top-0 left-0 h-full bg-black/90 backdrop-blur-md z-40 text-white shadow-xl border-r border-white/10"
-      onMouseEnter={() => setIsExpanded(true)}
-      onMouseLeave={() => setIsExpanded(false)}
+      onMouseEnter={isMobile ? undefined : () => setIsExpanded(true)}
+      onMouseLeave={isMobile ? undefined : () => setIsExpanded(false)}
     >
       <div className="flex flex-col h-full py-4">
         {/* Logo/Header */}
-        <div className="px-4 mb-8 flex items-center">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Trophy className="w-5 h-5" />
+        <div className="px-4 mb-8 flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Trophy className="w-5 h-5" />
+            </div>
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.span
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="ml-3 font-bold text-lg whitespace-nowrap"
+                >
+                  CopaApp
+                </motion.span>
+              )}
+            </AnimatePresence>
           </div>
-          <AnimatePresence>
-            {isExpanded && (
-              <motion.span
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-                className="ml-3 font-bold text-lg whitespace-nowrap"
-              >
-                CopaApp
-              </motion.span>
-            )}
-          </AnimatePresence>
+          {isMobile && (
+            <Button variant="ghost" size="icon" onClick={toggleMenu}>
+              {isExpanded ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          )}
         </div>
         
         {/* Menu Items */}
@@ -91,12 +114,28 @@ export default function SideMenu({
             onClick={onScheduleClick}
             isExpanded={isExpanded}
           />
-          <MenuItem 
-            icon={<UserPlus />} 
-            label="Invite Player" 
-            onClick={onInvitePlayerClick}
-            isExpanded={isExpanded}
-          />
+          {isCaptain && (
+            <>
+              <MenuItem 
+                icon={<UserPlus />} 
+                label="Invite Player" 
+                onClick={onInvitePlayerClick}
+                isExpanded={isExpanded}
+              />
+              <MenuItem 
+                icon={<Trophy />} 
+                label="Team Profile" 
+                onClick={onTeamProfileClick}
+                isExpanded={isExpanded}
+              />
+              <MenuItem 
+                icon={<PlusSquare />} 
+                label="Build Formation" 
+                onClick={onBuildFormationClick}
+                isExpanded={isExpanded}
+              />
+            </>
+          )}
           <MenuItem 
             icon={<User />} 
             label="Profile" 
@@ -104,9 +143,9 @@ export default function SideMenu({
             isExpanded={isExpanded}
           />
           <MenuItem 
-            icon={<Trophy />} 
-            label="Team Profile" 
-            onClick={onTeamProfileClick}
+            icon={<FriendsIcon />} 
+            label="Friends" 
+            onClick={onFriendsClick}
             isExpanded={isExpanded}
           />
           <MenuItem 
@@ -121,6 +160,13 @@ export default function SideMenu({
             onClick={onPickupGamesClick}
             isExpanded={isExpanded}
           />
+          <MenuItem 
+            icon={<Bell />} 
+            label="Notifications" 
+            onClick={onNotificationsClick}
+            isExpanded={isExpanded}
+            badgeCount={unreadNotificationsCount}
+          />
         </div>
       </div>
     </motion.div>
@@ -132,14 +178,15 @@ interface MenuItemProps {
   label: string
   onClick: () => void
   isExpanded: boolean
+  badgeCount?: number;
 }
 
-function MenuItem({ icon, label, onClick, isExpanded }: MenuItemProps) {
+function MenuItem({ icon, label, onClick, isExpanded, badgeCount }: MenuItemProps) {
   return (
     <motion.button
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="flex items-center w-full p-3 rounded-lg hover:bg-white/10 transition-colors duration-200 group"
+      className="flex items-center w-full p-3 rounded-lg hover:bg-white/10 transition-colors duration-200 group relative"
       onClick={onClick}
       title={!isExpanded ? label : undefined}
     >
@@ -159,6 +206,11 @@ function MenuItem({ icon, label, onClick, isExpanded }: MenuItemProps) {
           </motion.span>
         )}
       </AnimatePresence>
+      {badgeCount && badgeCount > 0 && (
+        <div className="absolute top-1 right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+          {badgeCount}
+        </div>
+      )}
     </motion.button>
   )
 }

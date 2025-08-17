@@ -1,3 +1,5 @@
 {
-    "zencoder.enableRepoIndexing": true
+    "zencoder.enableRepoIndexing": true,
+    "kiroAgent.configureMCP": "Disabled",
+    "workbench.colorTheme": "Tomorrow Night Blue"
 }

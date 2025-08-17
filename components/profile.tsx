@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
 import { 
   Trophy, Medal, Star, Calendar, MapPin, Clock, 
-  User, Mail, Phone, Globe, Camera, Edit, Loader2
+  User, Mail, Phone, Globe, Camera, Edit, Loader2, UserPlus
 } from "lucide-react"
 
 interface ProfileProps {
@@ -30,6 +30,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
   const { toast } = useToast()
   const [isUploading, setIsUploading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [profileData, setProfileData] = useState({
     name: "",
     firstName: "",
@@ -40,6 +41,8 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
     position: "",
     preferredPositions: [] as string[]
   })
+  const [isFriend, setIsFriend] = useState(false);
+  const [hasSentRequest, setHasSentRequest] = useState(false);
 
   const isOwnProfile = player?.id === currentUserId
   const displayPlayer = player || {
@@ -71,38 +74,62 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
     }
   }, [displayPlayer])
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  React.useEffect(() => {
+    if (isOpen && displayPlayer?.id && currentUserId && !isOwnProfile) {
+      const fetchFriendshipStatus = async () => {
+        try {
+          // Assuming an API call to check friendship status
+          // This API call needs to be implemented in apiClient and backend
+          const status = await apiClient.getFriendshipStatus(displayPlayer.id); // Pass target user ID
+          if (status === "friends") {
+            setIsFriend(true);
+          } else if (status === "pending_sent") {
+            setHasSentRequest(true);
+          }
+        } catch (error) {
+          console.error("Failed to fetch friendship status:", error);
+        }
+      };
+      fetchFriendshipStatus();
+    }
+  }, [isOpen, displayPlayer?.id, currentUserId, isOwnProfile]);
 
-    setIsUploading(true)
-    try {
-      const result = await apiClient.uploadFile(file, 'avatar')
-      
-      // Update user profile with new avatar
-      await apiClient.updatePlayer({ image: result.url })
-      
-      toast({
-        title: "Success",
-        description: "Profile picture updated successfully"
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to upload profile picture",
-        variant: "destructive"
-      })
-    } finally {
-      setIsUploading(false)
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      setSelectedImage(URL.createObjectURL(file))
     }
   }
 
-  const handleSaveProfile = async () => {
+  const handleSaveChanges = async () => {
     if (!isOwnProfile) return
 
     setIsSaving(true)
     try {
-      await apiClient.updatePlayer(profileData)
+      let imageUrl = displayPlayer.image
+      const avatarInput = document.getElementById('avatar-upload') as HTMLInputElement
+      const file = avatarInput?.files?.[0]
+
+      if (file) {
+        setIsUploading(true)
+        try {
+          const result = await apiClient.uploadFile(file, 'avatar')
+          imageUrl = result.url
+        } catch (error) {
+          toast({
+            title: "Error",
+            description: "Failed to upload profile picture",
+            variant: "destructive"
+          })
+          setIsUploading(false)
+          setIsSaving(false)
+          return
+        } finally {
+          setIsUploading(false)
+        }
+      }
+
+      await apiClient.updatePlayer({ ...profileData, image: imageUrl })
       
       toast({
         title: "Success",
@@ -120,6 +147,25 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
       setIsSaving(false)
     }
   }
+
+  const handleSendFriendRequest = async () => {
+    if (!displayPlayer?.id) return;
+    try {
+      await apiClient.sendFriendRequest(displayPlayer.id);
+      setHasSentRequest(true);
+      toast({
+        title: "Friend Request Sent",
+        description: `Friend request sent to ${displayPlayer.name}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send friend request.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-black/90 text-white backdrop-blur-sm border-gray-800 max-w-4xl">
@@ -145,7 +191,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
               <div className="flex flex-col items-center space-y-3">
                 <div className="relative">
                   <Avatar className="h-32 w-32">
-                    <AvatarImage src={displayPlayer.image || "/placeholder.svg"} />
+                    <AvatarImage src={selectedImage || displayPlayer.image || "/placeholder.svg"} />
                     <AvatarFallback>{displayPlayer.firstName?.[0] || 'U'}{displayPlayer.name?.split(' ')[1]?.[0] || ''}</AvatarFallback>
                   </Avatar>
                   {isOwnProfile && (
@@ -164,7 +210,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={handleAvatarUpload}
+                    onChange={handleImageChange}
                   />
                 </div>
                 <h2 className="text-xl font-bold">{displayPlayer.name}</h2>
@@ -179,12 +225,33 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                 <div className="flex flex-wrap justify-center gap-2 mt-2">
                   <Badge>{displayPlayer.position}</Badge>
                   {displayPlayer.isCaptain && <Badge>Team Captain</Badge>}
-                  {displayPlayer.preferredPositions?.map(pos => 
-                    pos !== displayPlayer.position && (
-                      <Badge key={pos} variant="outline">{pos}</Badge>
-                    )
+                  {displayPlayer.preferredPositions?.[0]?.toLowerCase() !== displayPlayer.position?.toLowerCase() && 
+                    displayPlayer.preferredPositions?.map(pos => 
+                      pos !== displayPlayer.position && (
+                        <Badge key={pos} variant="outline">{pos}</Badge>
+                      )
                   )}
                 </div>
+                {!isOwnProfile && (
+                  <div className="mt-4">
+                    {isFriend ? (
+                      <Button disabled className="bg-gray-600 text-white">
+                        <Users className="h-4 w-4 mr-2" />
+                        Friends
+                      </Button>
+                    ) : hasSentRequest ? (
+                      <Button disabled variant="outline" className="border-gray-500 text-gray-400">
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Request Sent
+                      </Button>
+                    ) : (
+                      <Button onClick={handleSendFriendRequest}>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Add Friend
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex-1 space-y-4">
@@ -316,7 +383,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                   <Label htmlFor="full-name">Full Name</Label>
                   <Input
                     id="full-name"
-                    value={profileData.name}
+                    defaultValue={profileData.name}
                     onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
                     className="bg-gray-800/50 border-gray-700"
                   />
@@ -325,7 +392,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                   <Label htmlFor="first-name">First Name</Label>
                   <Input
                     id="first-name"
-                    value={profileData.firstName}
+                    defaultValue={profileData.firstName}
                     onChange={(e) => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
                     className="bg-gray-800/50 border-gray-700"
                   />
@@ -334,7 +401,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
-                    value={profileData.email}
+                    defaultValue={profileData.email}
                     onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
                     className="bg-gray-800/50 border-gray-700"
                   />
@@ -343,7 +410,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                   <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
-                    value={profileData.phone}
+                    defaultValue={profileData.phone}
                     onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
                     className="bg-gray-800/50 border-gray-700"
                   />
@@ -352,7 +419,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                   <Label htmlFor="location">Location</Label>
                   <Input
                     id="location"
-                    value={profileData.location}
+                    defaultValue={profileData.location}
                     onChange={(e) => setProfileData(prev => ({ ...prev, location: e.target.value }))}
                     className="bg-gray-800/50 border-gray-700"
                   />
@@ -363,7 +430,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                 <Label htmlFor="bio">Bio</Label>
                 <Textarea
                   id="bio"
-                  value={profileData.bio}
+                  defaultValue={profileData.bio}
                   onChange={(e) => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
                   className="bg-gray-800/50 border-gray-700 min-h-[100px]"
                 />
@@ -373,7 +440,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                 <div className="space-y-2">
                   <Label htmlFor="primary-position">Primary Position</Label>
                   <Select 
-                    value={profileData.position} 
+                    defaultValue={profileData.position} 
                     onValueChange={(value) => setProfileData(prev => ({ ...prev, position: value }))}
                   >
                     <SelectTrigger className="bg-gray-800/50 border-gray-700">
@@ -421,7 +488,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
             Cancel
           </Button>
           {isOwnProfile && (
-            <Button onClick={handleSaveProfile} disabled={isSaving}>
+            <Button onClick={handleSaveChanges} disabled={isSaving}>
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

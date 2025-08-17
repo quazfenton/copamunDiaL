@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { handleError } from '@/lib/error-handler'
+import { Server as ServerIO } from "socket.io";
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,7 +58,13 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json(notification)
+    const response = new NextResponse(JSON.stringify(notification), { status: 201 });
+    const io = (response as any).socket?.server?.io as ServerIO | undefined;
+    if (io) {
+      io.to(`user-${userId}`).emit("new-notification", notification);
+    }
+
+    return response;
   } catch (error) {
     return handleError(error)
   }

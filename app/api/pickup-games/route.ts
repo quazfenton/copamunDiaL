@@ -19,16 +19,14 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return distance;
 }
 
-const createMatchSchema = z.object({
-  homeTeamId: z.string(),
-  awayTeamId: z.string(),
-  date: z.string(),
+const createPickupGameSchema = z.object({
   location: z.string(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
-  sport: z.string().optional(),
-  ageGroup: z.string().optional(),
-  leagueId: z.string().optional(),
+  date: z.string(),
+  sport: z.string(),
+  playersNeeded: z.number().int().min(1),
+  description: z.string().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -39,64 +37,38 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const teamId = searchParams.get('teamId');
-    const status = searchParams.get('status');
-    const date = searchParams.get('date');
-    const leagueId = searchParams.get('leagueId');
     const sport = searchParams.get('sport');
-    const ageGroup = searchParams.get('ageGroup');
+    const date = searchParams.get('date');
     const userLatitude = parseFloat(searchParams.get('latitude') || 'NaN');
     const userLongitude = parseFloat(searchParams.get('longitude') || 'NaN');
     const radius = parseFloat(searchParams.get('radius') || 'NaN'); // in kilometers
 
     let where: any = {};
 
-    if (teamId) {
-      where.OR = [{ homeTeamId: teamId }, { awayTeamId: teamId }];
-    }
-
-    if (status) {
-      where.status = status;
+    if (sport) {
+      where.sport = sport;
     }
 
     if (date) {
       const startDate = new Date(date);
       const endDate = new Date(date);
       endDate.setDate(endDate.getDate() + 1);
-
+      
       where.date = {
         gte: startDate,
         lt: endDate,
       };
     }
 
-    if (leagueId) {
-      where.leagueId = leagueId;
-    }
-
-    if (sport) {
-      where.sport = sport;
-    }
-
-    if (ageGroup) {
-      where.ageGroup = ageGroup;
-    }
-
-    let matches = await prisma.match.findMany({
+    let pickupGames = await prisma.pickupGame.findMany({
       where,
       include: {
-        homeTeam: {
+        organizer: {
           select: {
             id: true,
             name: true,
-            logo: true,
-          },
-        },
-        awayTeam: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
+            firstName: true,
+            image: true,
           },
         },
         participants: {
@@ -119,16 +91,16 @@ export async function GET(request: NextRequest) {
 
     // Apply radius filtering if coordinates and radius are provided
     if (!isNaN(userLatitude) && !isNaN(userLongitude) && !isNaN(radius)) {
-      matches = matches.filter(match => {
-        if (match.latitude && match.longitude) {
-          const distance = calculateDistance(userLatitude, userLongitude, match.latitude, match.longitude);
+      pickupGames = pickupGames.filter(game => {
+        if (game.latitude && game.longitude) {
+          const distance = calculateDistance(userLatitude, userLongitude, game.latitude, game.longitude);
           return distance <= radius;
         }
         return false;
       });
     }
 
-    return NextResponse.json(matches);
+    return NextResponse.json(pickupGames);
   } catch (error) {
     return handleError(error);
   }
@@ -142,47 +114,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validatedData = createMatchSchema.parse(body);
+    const validatedData = createPickupGameSchema.parse(body);
 
-    // Verify user has permission to create matches for the home team
-    const homeTeam = await prisma.team.findFirst({
-      where: {
-        id: validatedData.homeTeamId,
-        OR: [
-          { createdBy: session.user.id },
-          { captains: { some: { id: session.user.id } } },
-        ],
-      },
-    });
-
-    if (!homeTeam) {
-      return NextResponse.json({ error: 'Unauthorized to create matches for this team' }, { status: 403 });
-    }
-
-    const match = await prisma.match.create({
+    const newPickupGame = await prisma.pickupGame.create({
       data: {
         ...validatedData,
         date: new Date(validatedData.date),
-      },
-      include: {
-        homeTeam: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-          },
-        },
-        awayTeam: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-          },
-        },
+        organizerId: session.user.id,
       },
     });
 
-    return NextResponse.json(match);
+    return NextResponse.json(newPickupGame, { status: 201 });
   } catch (error) {
     return handleError(error);
   }
