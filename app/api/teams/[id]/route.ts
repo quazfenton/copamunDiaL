@@ -3,15 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-
-const updateTeamSchema = z.object({
-  name: z.string().min(1).optional(),
-  bio: z.string().optional(),
-  location: z.string().optional(),
-  isPrivate: z.boolean().optional(),
-  formation: z.string().optional(),
-  logo: z.string().optional()
-})
+import { updateTeamSchema } from '@/lib/schemas'
 
 export async function GET(
   request: NextRequest,
@@ -120,12 +112,11 @@ export async function GET(
 
     return NextResponse.json(formattedTeam)
   } catch (error) {
-    console.error('Error fetching team:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return handleError(error)
   }
 }
 
-export async function PUT(
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -197,6 +188,7 @@ export async function PUT(
       }
     })
 
+    const captainIds = new Set(updatedTeam.captains.map(c => c.id)); // Optimize captain lookup
     const formattedTeam = {
       id: updatedTeam.id,
       name: updatedTeam.name,
@@ -212,7 +204,7 @@ export async function PUT(
       createdBy: updatedTeam.createdBy,
       createdAt: updatedTeam.createdAt.toISOString(),
       updatedAt: updatedTeam.updatedAt.toISOString(),
-      captains: updatedTeam.captains.map(c => c.id),
+      captains: Array.from(captainIds),
       players: updatedTeam.members
         .filter(m => !m.isReserve)
         .map(m => ({
@@ -224,7 +216,7 @@ export async function PUT(
             rating: m.user.rating || 0
           },
           teams: [updatedTeam.id],
-          isCaptain: updatedTeam.captains.some(c => c.id === m.user.id)
+          isCaptain: captainIds.has(m.user.id) // Optimized lookup
         })),
       reserves: updatedTeam.members
         .filter(m => m.isReserve)
@@ -237,17 +229,13 @@ export async function PUT(
             rating: m.user.rating || 0
           },
           teams: [updatedTeam.id],
-          isCaptain: updatedTeam.captains.some(c => c.id === m.user.id)
+          isCaptain: captainIds.has(m.user.id) // Optimized lookup
         }))
     }
 
     return NextResponse.json(formattedTeam)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
-    }
-    console.error('Error updating team:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return handleError(error)
   }
 }
 
@@ -280,7 +268,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Team deleted successfully' })
   } catch (error) {
-    console.error('Error deleting team:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return handleError(error)
   }
 }

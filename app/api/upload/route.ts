@@ -5,10 +5,16 @@ import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import sharp from 'sharp'
+import { z } from 'zod'
+import { handleError } from '@/lib/error-handler'
 
 const UPLOAD_DIR = join(process.cwd(), 'public/uploads')
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+const uploadSchema = z.object({
+  type: z.enum(['avatar', 'team-logo']), // Validate type parameter
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,6 +26,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File
     const type = formData.get('type') as string
+
+    const validatedType = uploadSchema.parse({ type }).type; // Validate type
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -47,13 +55,13 @@ export async function POST(request: NextRequest) {
 
     // Process image with sharp
     let processedBuffer = buffer
-    if (type === 'avatar') {
+    if (validatedType === 'avatar') {
       // Resize and crop avatar to 200x200
       processedBuffer = await sharp(buffer)
         .resize(200, 200, { fit: 'cover' })
         .jpeg({ quality: 90 })
         .toBuffer()
-    } else if (type === 'team-logo') {
+    } else if (validatedType === 'team-logo') {
       // Resize team logo to max 300x300
       processedBuffer = await sharp(buffer)
         .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
@@ -73,7 +81,6 @@ export async function POST(request: NextRequest) {
       type: file.type
     })
   } catch (error) {
-    console.error('Error uploading file:', error)
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
+    return handleError(error)
   }
 }

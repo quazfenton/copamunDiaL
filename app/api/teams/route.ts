@@ -3,6 +3,16 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { createTeamSchema } from '@/lib/schemas'
+
+const updateTeamSchema = createTeamSchema.partial()
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { z } from 'zod'
+import { handleError } from '@/lib/error-handler' // Import handleError
 
 const createTeamSchema = z.object({
   name: z.string().min(1),
@@ -25,6 +35,12 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const location = searchParams.get('location')
     const userTeamsOnly = searchParams.get('userTeamsOnly') === 'true'
+    const take = parseInt(searchParams.get('take') || '10') // For pagination
+    const skip = parseInt(searchParams.get('skip') || '0') // For pagination
+
+    if (isNaN(take) || take <= 0 || isNaN(skip) || skip < 0) {
+      return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400 });
+    }
 
     let where: any = {}
 
@@ -91,57 +107,59 @@ export async function GET(request: NextRequest) {
       },
       orderBy: {
         rating: 'desc'
-      }
+      },
+      take,
+      skip
     })
 
-    const formattedTeams = teams.map(team => ({
-      id: team.id,
-      name: team.name,
-      logo: team.logo,
-      bio: team.bio,
-      formation: team.formation,
-      location: team.location,
-      isPrivate: team.isPrivate,
-      wins: team.wins,
-      losses: team.losses,
-      draws: team.draws,
-      rating: team.rating,
-      createdBy: team.createdBy,
-      createdAt: team.createdAt.toISOString(),
-      updatedAt: team.updatedAt.toISOString(),
-      captains: team.captains.map(c => c.id),
-      players: team.members
-        .filter(m => !m.isReserve)
-        .map(m => ({
-          ...m.user,
-          stats: {
-            matches: m.user.matches,
-            goals: m.user.goals,
-            assists: m.user.assists,
-            rating: m.user.rating || 0
-          },
-          teams: [team.id],
-          isCaptain: team.captains.some(c => c.id === m.user.id)
-        })),
-      reserves: team.members
-        .filter(m => m.isReserve)
-        .map(m => ({
-          ...m.user,
-          stats: {
-            matches: m.user.matches,
-            goals: m.user.goals,
-            assists: m.user.assists,
-            rating: m.user.rating || 0
-          },
-          teams: [team.id],
-          isCaptain: team.captains.some(c => c.id === m.user.id)
-        }))
-    }))
+    const formattedTeams = teams.map(team => {
+      const captainIds = new Set(team.captains.map(c => c.id)); // Optimize captain lookup
+      return ({
+        id: team.id,
+        name: team.name,
+        logo: team.logo,
+        bio: team.bio,
+        formation: team.formation,
+        location: team.location,
+        isPrivate: team.isPrivate,
+        wins: team.wins,
+        losses: team.losses,
+        draws: team.draws,
+        rating: team.rating,
+        createdBy: team.createdBy,
+        createdAt: team.createdAt.toISOString(),
+        updatedAt: team.updatedAt.toISOString(),
+        captains: Array.from(captainIds),
+        players: team.members
+          .filter(m => !m.isReserve)
+          .map(m => ({
+            ...m.user,
+            stats: {
+              matches: m.user.matches,
+              goals: m.user.goals,
+              assists: m.user.assists,
+              rating: m.user.rating || 0
+            },
+            isCaptain: captainIds.has(m.user.id) // Optimized lookup
+          })),
+        reserves: team.members
+          .filter(m => m.isReserve)
+          .map(m => ({
+            ...m.user,
+            stats: {
+              matches: m.user.matches,
+              goals: m.user.goals,
+              assists: m.user.assists,
+              rating: m.user.rating || 0
+            },
+            isCaptain: captainIds.has(m.user.id) // Optimized lookup
+          }))
+      })
+    })
 
     return NextResponse.json(formattedTeams)
   } catch (error) {
-    console.error('Error fetching teams:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return handleError(error) // Use handleError
   }
 }
 
@@ -252,10 +270,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(formattedTeam)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
-    }
-    console.error('Error creating team:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return handleError(error)
   }
 }

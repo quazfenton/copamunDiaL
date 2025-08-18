@@ -16,6 +16,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  const parsedStartDate = new Date(startDate);
+  const parsedEndDate = new Date(endDate);
+
+  if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+    return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+  }
+
+  if (parsedStartDate >= parsedEndDate) {
+    return NextResponse.json({ error: "End date must be after start date" }, { status: 400 });
+  }
+
+  // Optional: Prevent creating leagues with start dates in the past
+  // if (parsedStartDate < new Date()) {
+  //   return NextResponse.json({ error: "Start date cannot be in the past" }, { status: 400 });
+  // }
+
   try {
     const user = await prisma.user.findUnique({ where: { email: session.user.email } });
     if (!user) {
@@ -26,8 +42,8 @@ export async function POST(request: Request) {
       data: {
         name,
         description,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
         isPublic: isPublic ?? true,
         creatorId: user.id,
       },

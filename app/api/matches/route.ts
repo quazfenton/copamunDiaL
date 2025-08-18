@@ -4,25 +4,13 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
-
-// Helper function to calculate distance between two coordinates (Haversine formula)
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Radius of Earth in kilometers
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distance in kilometers
-  return distance;
-}
+import { calculateDistance } from '@/lib/utils';
+import { MatchStatus } from '@prisma/client'; // Import MatchStatus enum
 
 const createMatchSchema = z.object({
   homeTeamId: z.string(),
   awayTeamId: z.string(),
-  date: z.string(),
+  date: z.coerce.date(), // Use z.coerce.date()
   location: z.string(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
@@ -40,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const teamId = searchParams.get('teamId');
-    const status = searchParams.get('status');
+    const statusParam = searchParams.get('status'); // Renamed to avoid conflict
     const date = searchParams.get('date');
     const leagueId = searchParams.get('leagueId');
     const sport = searchParams.get('sport');
@@ -55,8 +43,12 @@ export async function GET(request: NextRequest) {
       where.OR = [{ homeTeamId: teamId }, { awayTeamId: teamId }];
     }
 
-    if (status) {
-      where.status = status;
+    if (statusParam) {
+      // Validate status against MatchStatus enum
+      if (!Object.values(MatchStatus).includes(statusParam as MatchStatus)) {
+        return NextResponse.json({ error: 'Invalid match status' }, { status: 400 });
+      }
+      where.status = statusParam;
     }
 
     if (date) {
@@ -159,10 +151,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized to create matches for this team' }, { status: 403 });
     }
 
+    // Verify away team exists
+    const awayTeam = await prisma.team.findUnique({
+      where: { id: validatedData.awayTeamId },
+    });
+
+    if (!awayTeam) {
+      return NextResponse.json({ error: 'Away team not found' }, { status: 404 });
+    }
+
     const match = await prisma.match.create({
       data: {
         ...validatedData,
-        date: new Date(validatedData.date),
+        date: validatedData.date, // date is already a Date object due to z.coerce.date()
       },
       include: {
         homeTeam: {

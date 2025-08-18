@@ -4,9 +4,10 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
+import { InviteStatus } from '@prisma/client'; // Import InviteStatus enum
 
 const createTeamInviteSchema = z.object({
-  toUserId: z.string(),
+  toUserId: z.string().cuid(), // Ensure toUserId is a valid CUID
   message: z.string().optional(),
 });
 
@@ -25,6 +26,11 @@ export async function POST(
     const body = await request.json();
     const validatedData = createTeamInviteSchema.parse(body);
 
+    // Prevent self-invites
+    if (validatedData.toUserId === session.user.id) {
+      return NextResponse.json({ error: 'Cannot invite yourself to a team' }, { status: 400 });
+    }
+
     // Verify the sender is a captain or creator of the team
     const team = await prisma.team.findUnique({
       where: { id: teamId },
@@ -34,6 +40,9 @@ export async function POST(
         },
         creator: {
           where: { id: session.user.id }
+        },
+        members: { // Include members to check if already a member
+          where: { userId: validatedData.toUserId }
         }
       }
     });
@@ -51,13 +60,18 @@ export async function POST(
       return NextResponse.json({ error: 'Recipient user not found' }, { status: 404 });
     }
 
+    // Check if recipient is already a member of the team
+    if (team.members.length > 0) {
+      return NextResponse.json({ error: 'User is already a member of this team' }, { status: 400 });
+    }
+
     // Check if invite already exists
     const existingInvite = await prisma.teamInvite.findFirst({
       where: {
         teamId: teamId,
         toId: validatedData.toUserId,
         status: {
-          in: ["PENDING", "ACCEPTED"]
+          in: [InviteStatus.PENDING, InviteStatus.ACCEPTED] // Use enum
         }
       }
     });
@@ -72,7 +86,7 @@ export async function POST(
         fromId: session.user.id,
         toId: validatedData.toUserId,
         message: validatedData.message,
-        status: "PENDING",
+        status: InviteStatus.PENDING, // Use enum
       },
     });
 
@@ -96,6 +110,33 @@ export async function GET(
     const teamId = params.id;
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type'); // 'sent' or 'received'
+
+    // Authorization: Only team members, captains, or creator can view invites for their team
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: {
+        captains: { where: { id: session.user.id } },
+        members: { where: { userId: session.user.id } },
+      },
+    });
+
+    const isTeamMember = team?.members.length > 0;
+    const isTeamCaptain = team?.captains.length > 0;
+    const isTeamCreator = team?.createdBy === session.user.id;
+
+    if (!isTeamMember && !isTeamCaptain && !isTeamCreator) {
+      // If not authorized to view team invites, check if it's a received invite for the user
+      if (type === 'received') {
+        const receivedInvite = await prisma.teamInvite.findFirst({
+          where: { teamId: teamId, toId: session.user.id },
+        });
+        if (receivedInvite) {
+          // Allow viewing only this specific received invite
+          return NextResponse.json([receivedInvite], { status: 200 });
+        }
+      }
+      return NextResponse.json({ error: 'Unauthorized to view invites for this team' }, { status: 403 });
+    }
 
     let whereClause: any = { teamId: teamId };
 
@@ -161,7 +202,7 @@ export async function PATCH(
     const inviteId = params.id; // This 'id' param is actually the inviteId
     const { status } = await request.json();
 
-    if (!["ACCEPTED", "DECLINED"].includes(status)) {
+    if (!Object.values(InviteStatus).includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
@@ -176,11 +217,11 @@ export async function PATCH(
 
     const updatedInvite = await prisma.teamInvite.update({
       where: { id: inviteId },
-      data: { status: status as "ACCEPTED" | "DECLINED" },
+      data: { status: status as InviteStatus },
     });
 
     // If accepted, add user to team members
-    if (status === "ACCEPTED") {
+    if (status === InviteStatus.ACCEPTED) {
       await prisma.teamMember.create({
         data: {
           teamId: existingInvite.teamId,

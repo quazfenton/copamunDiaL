@@ -41,11 +41,17 @@ export async function POST(request: Request) {
     }
 
     // Create new friendship request
+    // Prevent sending friend request to self
+    if (currentUser.id === friendUser.id) {
+      return NextResponse.json({ error: "Cannot send friend request to yourself" }, { status: 400 });
+    }
+
+    // Create new friendship request
     const friendship = await prisma.friendship.create({
       data: {
         userId: currentUser.id,
         friendId: friendUser.id,
-        status: "pending"
+        status: "PENDING" // Use enum
       }
     });
 
@@ -101,7 +107,7 @@ export async function PATCH(request: Request) {
   }
 
   const { friendshipId, status } = await request.json();
-  if (!friendshipId || !["accepted", "declined"].includes(status)) {
+  if (!friendshipId || !["ACCEPTED", "DECLINED"].includes(status)) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
@@ -113,7 +119,7 @@ export async function PATCH(request: Request) {
     });
 
     if (!friendship || friendship.friend.email !== session.user.email) {
-      return NextResponse.json({ error: "Friend request not found" }, { status: 404 });
+      return NextResponse.json({ error: "Friend request not found or unauthorized" }, { status: 404 });
     }
 
     // Update friendship status

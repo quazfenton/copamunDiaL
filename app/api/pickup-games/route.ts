@@ -4,26 +4,13 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
-
-// Helper function to calculate distance between two coordinates (Haversine formula)
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Radius of Earth in kilometers
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distance in kilometers
-  return distance;
-}
+import { calculateDistance } from '@/lib/utils';
 
 const createPickupGameSchema = z.object({
   location: z.string(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
-  date: z.string(),
+  date: z.coerce.date(), // Use z.coerce.date()
   sport: z.string(),
   playersNeeded: z.number().int().min(1),
   description: z.string().optional(),
@@ -119,7 +106,7 @@ export async function POST(request: NextRequest) {
     const newPickupGame = await prisma.pickupGame.create({
       data: {
         ...validatedData,
-        date: new Date(validatedData.date),
+        date: validatedData.date, // date is already a Date object due to z.coerce.date()
         organizerId: session.user.id,
       },
     });

@@ -24,6 +24,13 @@ export async function GET(
     const user = session.user;
 
     const teamId = params.id;
+    const { searchParams } = new URL(request.url);
+    const take = parseInt(searchParams.get('take') || '50'); // For pagination
+    const skip = parseInt(searchParams.get('skip') || '0'); // For pagination
+
+    if (isNaN(take) || take <= 0 || isNaN(skip) || skip < 0) {
+      return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400 });
+    }
 
     // Verify user is a member of the team
     const teamMember = await prisma.teamMember.findFirst({
@@ -51,6 +58,8 @@ export async function GET(
       orderBy: {
         createdAt: 'asc',
       },
+      take,
+      skip,
     });
 
     return NextResponse.json(messages, { status: 200 });

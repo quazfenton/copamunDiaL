@@ -4,7 +4,19 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { handleError } from '@/lib/error-handler'
 
-export async function PUT(
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { handleError } from '@/lib/error-handler'
+import { z } from 'zod';
+
+const updateNotificationSchema = z.object({
+  isRead: z.boolean().optional(),
+  status: z.string().optional(), // Assuming status is a string for now, could be enum
+});
+
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -15,7 +27,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { isRead, status } = body
+    const validatedData = updateNotificationSchema.parse(body);
 
     // Verify notification belongs to user
     const notification = await prisma.notification.findFirst({
@@ -32,8 +44,8 @@ export async function PUT(
     const updatedNotification = await prisma.notification.update({
       where: { id: params.id },
       data: {
-        ...(isRead !== undefined && { isRead }),
-        ...(status && { data: { ...notification.data, status } })
+        ...(validatedData.isRead !== undefined && { isRead: validatedData.isRead }),
+        ...(validatedData.status && { data: { ...notification.data, status: validatedData.status } })
       }
     })
 

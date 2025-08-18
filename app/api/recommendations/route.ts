@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
+import { calculateDistance } from '@/lib/utils';
 
 const recommendationSchema = z.object({
   type: z.enum(["player", "team", "match"]),
@@ -16,6 +17,7 @@ const recommendationSchema = z.object({
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   radius: z.number().optional(),
+  date: z.coerce.date().optional(), // Added date field
 });
 
 export async function GET(request: NextRequest) {
@@ -37,6 +39,8 @@ export async function GET(request: NextRequest) {
     const latitude = parseFloat(searchParams.get('latitude') || 'NaN');
     const longitude = parseFloat(searchParams.get('longitude') || 'NaN');
     const radius = parseFloat(searchParams.get('radius') || 'NaN');
+    const dateParam = searchParams.get('date');
+    const date = dateParam ? z.coerce.date().parse(dateParam) : undefined;
 
     let recommendations: any[] = [];
 
@@ -82,7 +86,7 @@ export async function GET(request: NextRequest) {
         playerWhere.id = { notIn: [...memberIds, userSession.id] };
       }
 
-      recommendations = await prisma.user.findMany({
+      let players = await prisma.user.findMany({
         where: playerWhere,
         select: {
           id: true,
@@ -98,9 +102,23 @@ export async function GET(request: NextRequest) {
           matches: true,
           goals: true,
           assists: true,
+          latitude: true, // Include latitude for distance calculation
+          longitude: true, // Include longitude for distance calculation
         },
         take: 10, // Limit recommendations
       });
+
+      // Apply radius filtering if coordinates and radius are provided
+      if (!isNaN(latitude) && !isNaN(longitude) && !isNaN(radius)) {
+        players = players.filter(player => {
+          if (player.latitude && player.longitude) {
+            const distance = calculateDistance(latitude, longitude, player.latitude, player.longitude);
+            return distance <= radius;
+          }
+          return false;
+        });
+      }
+      recommendations = players;
 
     } else if (type === "team") {
       // Recommend teams for a user or another team
@@ -131,7 +149,7 @@ export async function GET(request: NextRequest) {
         teamWhere.rating = { ...teamWhere.rating, lte: maxRating };
       }
 
-      recommendations = await prisma.team.findMany({
+      let teams = await prisma.team.findMany({
         where: teamWhere,
         select: {
           id: true,
@@ -143,9 +161,23 @@ export async function GET(request: NextRequest) {
           wins: true,
           losses: true,
           draws: true,
+          latitude: true, // Include latitude for distance calculation
+          longitude: true, // Include longitude for distance calculation
         },
         take: 10,
       });
+
+      // Apply radius filtering if coordinates and radius are provided
+      if (!isNaN(latitude) && !isNaN(longitude) && !isNaN(radius)) {
+        teams = teams.filter(team => {
+          if (team.latitude && team.longitude) {
+            const distance = calculateDistance(latitude, longitude, team.latitude, team.longitude);
+            return distance <= radius;
+          }
+          return false;
+        });
+      }
+      recommendations = teams;
 
     } else if (type === "match") {
       // Recommend matches for a user or team
@@ -173,8 +205,17 @@ export async function GET(request: NextRequest) {
       if (ageGroup) {
         matchWhere.ageGroup = ageGroup;
       }
+      if (date) {
+        const startDate = new Date(date);
+        const endDate = new Date(date);
+        endDate.setDate(endDate.getDate() + 1);
+        matchWhere.date = {
+          gte: startDate,
+          lt: endDate,
+        };
+      }
 
-      recommendations = await prisma.match.findMany({
+      let matches = await prisma.match.findMany({
         where: matchWhere,
         include: {
           homeTeam: { select: { id: true, name: true, logo: true } },
@@ -183,6 +224,19 @@ export async function GET(request: NextRequest) {
         orderBy: { date: 'asc' },
         take: 10,
       });
+
+      // Apply radius filtering if coordinates and radius are provided
+      if (!isNaN(latitude) && !isNaN(longitude) && !isNaN(radius)) {
+        matches = matches.filter(match => {
+          if (match.latitude && match.longitude) {
+            const distance = calculateDistance(latitude, longitude, match.latitude, match.longitude);
+            return distance <= radius;
+          }
+          return false;
+        });
+      }
+      recommendations = matches;
+
     } else {
       return NextResponse.json({ error: 'Invalid recommendation type' }, { status: 400 });
     }

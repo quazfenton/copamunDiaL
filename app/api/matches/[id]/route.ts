@@ -73,74 +73,82 @@ export async function PATCH(
       });
     }
 
-    // Update team stats if match is completed
-    if (updatedMatch.status === "COMPLETED" && validatedData.homeScore !== undefined && validatedData.awayScore !== undefined) {
+    // Update team stats if match is completed and stats haven't been processed yet
+    if (updatedMatch.status === "COMPLETED" && !existingMatch.statsProcessed && validatedData.homeScore !== undefined && validatedData.awayScore !== undefined) {
       const homeScore = validatedData.homeScore;
       const awayScore = validatedData.awayScore;
 
-      if (homeScore > awayScore) {
-        // Home team wins
-        await prisma.team.update({
-          where: { id: existingMatch.homeTeamId },
-          data: { wins: { increment: 1 } },
-        });
-        await prisma.team.update({
-          where: { id: existingMatch.awayTeamId },
-          data: { losses: { increment: 1 } },
-        });
-      } else if (awayScore > homeScore) {
-        // Away team wins
-        await prisma.team.update({
-          where: { id: existingMatch.awayTeamId },
-          data: { wins: { increment: 1 } },
-        });
-        await prisma.team.update({
-          where: { id: existingMatch.homeTeamId },
-          data: { losses: { increment: 1 } },
-        });
-      } else {
-        // Draw
-        await prisma.team.update({
-          where: { id: existingMatch.homeTeamId },
-          data: { draws: { increment: 1 } },
-        });
-        await prisma.team.update({
-          where: { id: existingMatch.awayTeamId },
-          data: { draws: { increment: 1 } },
-        });
-      }
+      await prisma.$transaction(async (tx) => {
+        if (homeScore > awayScore) {
+          // Home team wins
+          await tx.team.update({
+            where: { id: existingMatch.homeTeamId },
+            data: { wins: { increment: 1 } },
+          });
+          await tx.team.update({
+            where: { id: existingMatch.awayTeamId },
+            data: { losses: { increment: 1 } },
+          });
+        } else if (awayScore > homeScore) {
+          // Away team wins
+          await tx.team.update({
+            where: { id: existingMatch.awayTeamId },
+            data: { wins: { increment: 1 } },
+          });
+          await tx.team.update({
+            where: { id: existingMatch.homeTeamId },
+            data: { losses: { increment: 1 } },
+          });
+        } else {
+          // Draw
+          await tx.team.update({
+            where: { id: existingMatch.homeTeamId },
+            data: { draws: { increment: 1 } },
+          });
+          await tx.team.update({
+            where: { id: existingMatch.awayTeamId },
+            data: { draws: { increment: 1 } },
+          });
+        }
 
-      // Update league team stats if part of a league
-      if (existingMatch.leagueId) {
-        await prisma.leagueTeam.updateMany({
-          where: {
-            leagueId: existingMatch.leagueId,
-            teamId: existingMatch.homeTeamId,
-          },
-          data: {
-            goalsFor: { increment: homeScore },
-            goalsAgainst: { increment: awayScore },
-            points: { increment: homeScore > awayScore ? 3 : (homeScore === awayScore ? 1 : 0) },
-            wins: { increment: homeScore > awayScore ? 1 : 0 },
-            losses: { increment: awayScore > homeScore ? 1 : 0 },
-            draws: { increment: homeScore === awayScore ? 1 : 0 },
-          },
+        // Update league team stats if part of a league
+        if (existingMatch.leagueId) {
+          await tx.leagueTeam.updateMany({
+            where: {
+              leagueId: existingMatch.leagueId,
+              teamId: existingMatch.homeTeamId,
+            },
+            data: {
+              goalsFor: { increment: homeScore },
+              goalsAgainst: { increment: awayScore },
+              points: { increment: homeScore > awayScore ? 3 : (homeScore === awayScore ? 1 : 0) },
+              wins: { increment: homeScore > awayScore ? 1 : 0 },
+              losses: { increment: awayScore > homeScore ? 1 : 0 },
+              draws: { increment: homeScore === awayScore ? 1 : 0 },
+            },
+          });
+          await tx.leagueTeam.updateMany({
+            where: {
+              leagueId: existingMatch.leagueId,
+              teamId: existingMatch.awayTeamId,
+            },
+            data: {
+              goalsFor: { increment: awayScore },
+              goalsAgainst: { increment: homeScore },
+              points: { increment: awayScore > homeScore ? 3 : (homeScore === awayScore ? 1 : 0) },
+              wins: { increment: awayScore > homeScore ? 1 : 0 },
+              losses: { increment: homeScore > awayScore ? 1 : 0 },
+              draws: { increment: homeScore === awayScore ? 1 : 0 },
+            },
+          });
+        }
+
+        // Mark stats as processed
+        await tx.match.update({
+          where: { id: matchId },
+          data: { statsProcessed: true },
         });
-        await prisma.leagueTeam.updateMany({
-          where: {
-            leagueId: existingMatch.leagueId,
-            teamId: existingMatch.awayTeamId,
-          },
-          data: {
-            goalsFor: { increment: awayScore },
-            goalsAgainst: { increment: homeScore },
-            points: { increment: awayScore > homeScore ? 3 : (homeScore === awayScore ? 1 : 0) },
-            wins: { increment: awayScore > homeScore ? 1 : 0 },
-            losses: { increment: homeScore > awayScore ? 1 : 0 },
-            draws: { increment: homeScore === awayScore ? 1 : 0 },
-          },
-        });
-      }
+      });
     }
 
     return response;
