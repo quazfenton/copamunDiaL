@@ -16,6 +16,14 @@ const createPlayerSchema = z.object({
 
 const updatePlayerSchema = createPlayerSchema.partial()
 
+function handleError(error: unknown) {
+  if (error instanceof z.ZodError) {
+    return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
+  }
+  console.error('API Error:', error)
+  return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -40,30 +48,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (position) {
-      where.OR = [
-        { position: { contains: position, mode: 'insensitive' } },
-        { preferredPositions: { has: position } }
-      ]
-    }
-
-    if (location) {
-      where.location = { contains: location, mode: 'insensitive' }
-    }
-
-        const where: any = {
-      isActive: true
-    }
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } }
-      ]
-    }
-
-    if (position) {
-      // If position is provided, add it to the WHERE clause
-      // This will implicitly AND with other conditions
       where.AND = where.AND || [];
       where.AND.push({
         OR: [
@@ -129,7 +113,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const formattedPlayers = players.map(player => ({
+    const formattedPlayers = players.map((player: any) => ({
       ...player,
       stats: {
         matches: player.matches,
@@ -137,8 +121,8 @@ export async function GET(request: NextRequest) {
         assists: player.assists,
         rating: player.rating || 0
       },
-      teams: player.teams.map(t => t.team.id),
-      isCaptain: player.captainOf.length > 0 // Dynamically determine if player is a captain
+      teams: player.teams.map((t: any) => t.team.id),
+      isCaptain: player.captainOf.length > 0
     }))
 
     return NextResponse.json(formattedPlayers)
@@ -170,7 +154,7 @@ export async function POST(request: NextRequest) {
       where: { id: session.user.id },
       data: {
         ...validatedData,
-        roles: newRoles,
+        roles: newRoles as any,
       },
       select: {
         id: true,
@@ -217,7 +201,7 @@ export async function POST(request: NextRequest) {
         assists: player.assists,
         rating: player.rating || 0
       },
-      teams: player.teams.map(t => t.team.id),
+      teams: player.teams.map((t: any) => t.team.id),
       isCaptain: player.captainOf.length > 0
     })
   } catch (error) {
@@ -283,140 +267,10 @@ export async function PUT(request: NextRequest) {
         assists: player.assists,
         rating: player.rating || 0
       },
-      teams: player.teams.map(t => t.team.id),
+      teams: player.teams.map((t: any) => t.team.id),
       isCaptain: player.captainOf.length > 0
     })
   } catch (error) {
     return handleError(error)
-  }
-}
-
-    const formattedPlayers = players.map(player => ({
-      ...player,
-      stats: {
-        matches: player.matches,
-        goals: player.goals,
-        assists: player.assists,
-        rating: player.rating || 0
-      },
-      teams: player.teams.map(t => t.team.id),
-      isCaptain: false // This will be determined by team context
-    }))
-
-    return NextResponse.json(formattedPlayers)
-  } catch (error) {
-    console.error('Error fetching players:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const body = await request.json()
-    const validatedData = createPlayerSchema.parse(body)
-
-    const player = await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        ...validatedData,
-        roles: ['PLAYER']
-      },
-      select: {
-        id: true,
-        name: true,
-        firstName: true,
-        position: true,
-        preferredPositions: true,
-        image: true,
-        bio: true,
-        email: true,
-        phone: true,
-        location: true,
-        rating: true,
-        matches: true,
-        goals: true,
-        assists: true,
-        wins: true,
-        losses: true,
-        draws: true
-      }
-    })
-
-    return NextResponse.json({
-      ...player,
-      stats: {
-        matches: player.matches,
-        goals: player.goals,
-        assists: player.assists,
-        rating: player.rating || 0
-      },
-      teams: [],
-      isCaptain: false
-    })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
-    }
-    console.error('Error creating player:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const body = await request.json()
-    const validatedData = updatePlayerSchema.parse(body)
-
-    const player = await prisma.user.update({
-      where: { id: session.user.id },
-      data: validatedData,
-      select: {
-        id: true,
-        name: true,
-        firstName: true,
-        position: true,
-        preferredPositions: true,
-        image: true,
-        bio: true,
-        email: true,
-        phone: true,
-        location: true,
-        rating: true,
-        matches: true,
-        goals: true,
-        assists: true,
-        wins: true,
-        losses: true,
-        draws: true
-      }
-    })
-
-    return NextResponse.json({
-      ...player,
-      stats: {
-        matches: player.matches,
-        goals: player.goals,
-        assists: player.assists,
-        rating: player.rating || 0
-      },
-      teams: [],
-      isCaptain: false
-    })
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
-    }
-    console.error('Error updating player:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

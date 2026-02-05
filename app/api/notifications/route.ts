@@ -5,11 +5,10 @@ import { prisma } from '@/lib/db'
 import { handleError } from '@/lib/error-handler'
 import { Server as ServerIO } from "socket.io";
 import { z } from 'zod';
-import { NotificationType } from '@prisma/client';
 
 const createNotificationSchema = z.object({
   userId: z.string().cuid(), // Ensure userId is a valid CUID
-  type: z.nativeEnum(NotificationType), // Validate against NotificationType enum
+  type: z.enum(['TEAM_INVITE', 'MATCH_REQUEST', 'PLAYER_INVITE', 'MATCH_SCHEDULED', 'MATCH_REMINDER', 'ACHIEVEMENT', 'SYSTEM']), // Validate against NotificationType enum
   title: z.string().min(1).max(255), // Add length constraints
   message: z.string().min(1).max(1000), // Add length constraints
   data: z.record(z.any()).optional(), // Flexible for JSON data
@@ -71,13 +70,19 @@ export async function POST(request: NextRequest) {
         select: { roles: true },
       });
 
-      if (!currentUser || !currentUser.roles.some(role => ["SUPER_ADMIN", "LEAGUE_ADMIN"].includes(role))) {
+      if (!currentUser || !currentUser.roles.some((role: any) => ["SUPER_ADMIN", "LEAGUE_ADMIN"].includes(role))) {
         return NextResponse.json({ error: 'Unauthorized to create notification for this user' }, { status: 403 });
       }
     }
 
     const notification = await prisma.notification.create({
-      data: validatedData
+      data: {
+        userId: validatedData.userId,
+        type: validatedData.type,
+        title: validatedData.title,
+        message: validatedData.message,
+        data: validatedData.data,
+      }
     })
 
     const response = new NextResponse(JSON.stringify(notification), { status: 201 });

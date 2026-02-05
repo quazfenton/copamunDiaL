@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, UserPlus, MessageCircle } from "lucide-react";
+import { Search, UserPlus, MessageCircle, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { useToast } from "@/hooks/use-toast";
 import { Player } from "@/lib/types";
@@ -33,7 +33,7 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
     setLoading(true);
     try {
       const data = await apiClient.getFriends(); // Assuming this API call exists
-      setFriends(data);
+      setFriends(data as any);
     } catch (error: any) {
       console.error("Failed to fetch friends:", error);
       toast({
@@ -54,8 +54,8 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
     }
     setIsSearching(true);
     try {
-      const results = await apiClient.searchPlayers({ search: searchTerm }); // Assuming searchPlayers exists
-      setSearchResults(results.filter((p: Player) => p.id !== currentUserId && !friends.some(f => f.id === p.id)));
+      const results = await apiClient.getPlayers({ search: searchTerm }) as any;
+      setSearchResults((results.data || results).filter((p: any) => p.id !== currentUserId && !friends.some((f: any) => f.id === p.id)));
     } catch (error: any) {
       console.error("Failed to search players:", error);
       toast({
@@ -75,7 +75,7 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
         title: "Friend Request Sent",
         description: "Your friend request has been sent.",
       });
-      setSearchResults(searchResults.filter(p => p.id !== toUserId)); // Remove from search results
+      setSearchResults(searchResults.filter((p: any) => p.id !== toUserId)); // Remove from search results
     } catch (error: any) {
       console.error("Failed to send friend request:", error);
       toast({
@@ -123,7 +123,7 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
                   </Avatar>
                   <p className="font-medium">{player.name}</p>
                 </div>
-                <Button size="sm" onClick={() => handleSendFriendRequest(player.id)}>
+                <Button size="sm" onClick={() => handleSendFriendRequest((player as any).id)}>
                   <UserPlus className="w-4 h-4 mr-1" />
                   Add Friend
                 </Button>

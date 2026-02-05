@@ -107,9 +107,9 @@ export default function CalendarView({ isOpen, onClose }: CalendarViewProps) {
                       key={event.id}
                       title={`${event.homeTeam.name} vs ${event.awayTeam.name}`}
                       date={format(event.dateObj, "EEEE, MMMM d, yyyy")}
-                      time={event.time}
+                      time={format(event.dateObj, "HH:mm")}
                       location={event.location}
-                      type={event.status === "completed" ? "completed" : "scheduled"}
+                      type={event.status === "COMPLETED" ? "completed" : "scheduled"}
                     />
                   ))}
                 </div>
@@ -139,10 +139,9 @@ export default function CalendarView({ isOpen, onClose }: CalendarViewProps) {
                       key={event.id}
                       homeTeam={event.homeTeam}
                       awayTeam={event.awayTeam}
-                      time={event.time}
+                      time={format(event.dateObj, "HH:mm")}
                       location={event.location}
-                      status={event.status}
-                      score={event.score}
+                      status={event.status as any}
                     />
                   ))}
                 </div>

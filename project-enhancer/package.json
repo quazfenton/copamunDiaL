@@ -1,0 +1,24 @@
+{
+  "name": "project-enhancer",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "enhance": "npx tsx scripts/enhancer.ts",
+    "enhance:verbose": "npx tsx scripts/enhancer.ts --verbose",
+    "enhance:dry-run": "npx tsx scripts/enhancer.ts --dry-run"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/fs-extra": "^11.0.4",
+    "tsx": "^4.19.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "fs-extra": "^11.3.3",
+    "glob": "^13.0.1",
+    "zod": "^4.3.6"
+  }
+}

@@ -24,7 +24,7 @@ interface MatchDetailsProps {
 export default function MatchDetails({ initialMatch }: MatchDetailsProps) {
   const { data: session } = useSession();
   const [match, setMatch] = useState<Match>(initialMatch);
-  const socket = useSocket(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
+  const { socket, isConnected } = useSocket(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
 
   useEffect(() => {
     if (!socket || !match.id) return;
