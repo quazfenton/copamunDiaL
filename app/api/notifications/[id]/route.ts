@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { handleError } from '@/lib/error-handler'
+import { z } from 'zod'
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
-import { handleError } from '@/lib/error-handler'
-import { z } from 'zod';
+function handleError(error: unknown) {
+  if (error instanceof z.ZodError) {
+    return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
+  }
+  console.error('API Error:', error)
+  return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+}
 
 const updateNotificationSchema = z.object({
   isRead: z.boolean().optional(),
@@ -18,7 +19,7 @@ const updateNotificationSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -26,13 +27,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params;
     const body = await request.json()
     const validatedData = updateNotificationSchema.parse(body);
 
     // Verify notification belongs to user
     const notification = await prisma.notification.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id
       }
     })
@@ -42,10 +44,10 @@ export async function PATCH(
     }
 
     const updatedNotification = await prisma.notification.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(validatedData.isRead !== undefined && { isRead: validatedData.isRead }),
-        ...(validatedData.status && { data: { ...notification.data, status: validatedData.status } })
+        ...(validatedData.status && { data: { ...(notification.data as any), status: validatedData.status } })
       }
     })
 

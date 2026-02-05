@@ -3,16 +3,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { createTeamSchema } from '@/lib/schemas'
-
-const updateTeamSchema = createTeamSchema.partial()
-
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
-import { z } from 'zod'
-import { handleError } from '@/lib/error-handler' // Import handleError
 
 const createTeamSchema = z.object({
   name: z.string().min(1),
@@ -23,6 +13,14 @@ const createTeamSchema = z.object({
 })
 
 const updateTeamSchema = createTeamSchema.partial()
+
+function handleError(error: unknown) {
+  if (error instanceof z.ZodError) {
+    return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
+  }
+  console.error('API Error:', error)
+  return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,8 +33,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const location = searchParams.get('location')
     const userTeamsOnly = searchParams.get('userTeamsOnly') === 'true'
-    const take = parseInt(searchParams.get('take') || '10') // For pagination
-    const skip = parseInt(searchParams.get('skip') || '0') // For pagination
+    const take = parseInt(searchParams.get('take') || '10')
+    const skip = parseInt(searchParams.get('skip') || '0')
 
     if (isNaN(take) || take <= 0 || isNaN(skip) || skip < 0) {
       return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400 });
@@ -113,7 +111,7 @@ export async function GET(request: NextRequest) {
     })
 
     const formattedTeams = teams.map(team => {
-      const captainIds = new Set(team.captains.map(c => c.id)); // Optimize captain lookup
+      const captainIds = new Set(team.captains.map(c => c.id));
       return ({
         id: team.id,
         name: team.name,
@@ -140,7 +138,7 @@ export async function GET(request: NextRequest) {
               assists: m.user.assists,
               rating: m.user.rating || 0
             },
-            isCaptain: captainIds.has(m.user.id) // Optimized lookup
+            isCaptain: captainIds.has(m.user.id)
           })),
         reserves: team.members
           .filter(m => m.isReserve)
@@ -152,14 +150,14 @@ export async function GET(request: NextRequest) {
               assists: m.user.assists,
               rating: m.user.rating || 0
             },
-            isCaptain: captainIds.has(m.user.id) // Optimized lookup
+            isCaptain: captainIds.has(m.user.id)
           }))
       })
     })
 
     return NextResponse.json(formattedTeams)
   } catch (error) {
-    return handleError(error) // Use handleError
+    return handleError(error)
   }
 }
 
@@ -175,7 +173,11 @@ export async function POST(request: NextRequest) {
 
     const team = await prisma.team.create({
       data: {
-        ...validatedData,
+        name: validatedData.name,
+        bio: validatedData.bio,
+        location: validatedData.location,
+        formation: validatedData.formation,
+        isPrivate: validatedData.isPrivate,
         createdBy: session.user.id,
         captains: {
           connect: { id: session.user.id }

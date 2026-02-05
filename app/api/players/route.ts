@@ -17,6 +17,14 @@ const createPlayerSchema = z.object({
 
 const updatePlayerSchema = createPlayerSchema.partial()
 
+function handleError(error: unknown) {
+  if (error instanceof z.ZodError) {
+    return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
+  }
+  console.error('API Error:', error)
+  return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -108,7 +116,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const formattedPlayers = players.map(player => ({
+    const formattedPlayers = players.map((player: any) => ({
       ...player,
       stats: {
         matches: player.matches,
@@ -116,8 +124,8 @@ export async function GET(request: NextRequest) {
         assists: player.assists,
         rating: player.rating || 0
       },
-      teams: player.teams.map(t => t.team.id),
-      isCaptain: player.captainOf.length > 0 // Dynamically determine if player is a captain
+      teams: player.teams.map((t: any) => t.team.id),
+      isCaptain: player.captainOf.length > 0
     }))
 
     return NextResponse.json(formattedPlayers)
@@ -149,7 +157,7 @@ export async function POST(request: NextRequest) {
       where: { id: session.user.id },
       data: {
         ...validatedData,
-        roles: newRoles,
+        roles: newRoles as any,
       },
       select: {
         id: true,
@@ -196,7 +204,7 @@ export async function POST(request: NextRequest) {
         assists: player.assists,
         rating: player.rating || 0
       },
-      teams: player.teams.map(t => t.team.id),
+      teams: player.teams.map((t: any) => t.team.id),
       isCaptain: player.captainOf.length > 0
     })
   } catch (error) {
@@ -262,7 +270,7 @@ export async function PUT(request: NextRequest) {
         assists: player.assists,
         rating: player.rating || 0
       },
-      teams: player.teams.map(t => t.team.id),
+      teams: player.teams.map((t: any) => t.team.id),
       isCaptain: player.captainOf.length > 0
     })
   } catch (error) {

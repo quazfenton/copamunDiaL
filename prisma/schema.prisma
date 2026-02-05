@@ -61,7 +61,12 @@ model User {
   // Friend relationships
   friendshipsAsUser   Friendship[] @relation("UserFriends")
   friendshipsAsFriend Friendship[] @relation("FriendUsers")
+  
+  // Tournament relationships
+  organizedTournaments Tournament[] @relation("TournamentOrganizer")
 
+  @@index([email])
+  @@index([location])
   @@map("users")
 }
 
@@ -120,7 +125,13 @@ model Team {
   invites     TeamInvite[]
   leagues     LeagueTeam[]
   messages    Message[]
+  matchRequestsFrom MatchRequest[] @relation("MatchRequestFromTeam")
+  matchRequestsTo   MatchRequest[] @relation("MatchRequestToTeam")
+  tournaments       TournamentTeam[]
 
+  @@index([name])
+  @@index([location])
+  @@index([rating])
   @@map("teams")
 }
 
@@ -217,7 +228,109 @@ enum FriendshipStatus {
   BLOCKED
 }
 
-enum Role {
+model Tournament {
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+  sport           String
+  bracketType     BracketType      @default(SINGLE_ELIMINATION)
+  status          TournamentStatus @default(DRAFT)
+  maxTeams        Int              @default(8)
+  startDate       DateTime
+  endDate         DateTime?
+  registrationEnd DateTime?
+  prizeInfo       String?
+  rules           String?
+  location        String?
+  latitude        Float?
+  longitude       Float?
+  entryFee        Float?           @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organizer      User               @relation("TournamentOrganizer", fields: [organizerId], references: [id])
+  organizerId    String
+  participants   TournamentTeam[]
+  matches        TournamentMatch[]
+  brackets       TournamentBracket[]
+
+  @@index([sport])
+  @@index([status])
+  @@index([startDate])
+  @@map("tournaments")
+}
+
+model TournamentTeam {
+  id           String   @id @default(cuid())
+  tournamentId String
+  teamId       String
+  seed         Int?
+  status       TournamentTeamStatus @default(REGISTERED)
+  registeredAt DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team       Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, teamId])
+  @@map("tournament_teams")
+}
+
+model TournamentMatch {
+  id           String              @id @default(cuid())
+  tournamentId String
+  round        Int
+  matchNumber  Int
+  homeTeamId   String?
+  awayTeamId   String?
+  winnerId     String?
+  homeScore    Int?
+  awayScore    Int?
+  scheduledAt  DateTime?
+  completedAt  DateTime?
+  status       MatchStatus         @default(SCHEDULED)
+  bracketId    String?
+
+  tournament Tournament         @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  bracket    TournamentBracket? @relation(fields: [bracketId], references: [id])
+
+  @@index([tournamentId, round])
+  @@map("tournament_matches")
+}
+
+model TournamentBracket {
+  id           String @id @default(cuid())
+  tournamentId String
+  bracketData  Json   // Stores bracket structure
+  
+  tournament Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  matches    TournamentMatch[]
+
+  @@map("tournament_brackets")
+}
+
+enum BracketType {
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  ROUND_ROBIN
+  SWISS
+}
+
+enum TournamentStatus {
+  DRAFT
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TournamentTeamStatus {
+  REGISTERED
+  CONFIRMED
+  ELIMINATED
+  WINNER
+  WITHDRAWN
+}
 
 model League {
   id          String      @id @default(cuid())
@@ -305,28 +418,26 @@ model TeamInvite {
 }
 
 model MatchRequest {
-  id              String       @id @default(cuid())
-  fromTeamId      String
-  toTeamId        String
-  fromUserId      String
-  proposedDate    DateTime
-  proposedLocation String
-  message         String?
-  status          InviteStatus @default(PENDING)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id                 String       @id @default(cuid())
+  fromTeamId         String
+  toTeamId           String
+  fromUserId         String
+  proposedDate       DateTime
+  proposedLocation   String
+  proposedLatitude   Float?
+  proposedLongitude  Float?
+  message            String?
+  status             InviteStatus @default(PENDING)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
-  proposedLatitude   Float?       // New field
-  proposedLongitude  Float?       // New field
-  message         String?
-  status          InviteStatus @default(PENDING)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-
-  fromTeam   Team         @relation("MatchRequestFromTeam", fields: [fromTeamId], references: [id], onDelete: Cascade)
-  toTeam     Team         @relation("MatchRequestToTeam", fields: [toTeamId], references: [id], onDelete: Cascade)
+  fromTeam Team @relation("MatchRequestFromTeam", fields: [fromTeamId], references: [id], onDelete: Cascade)
+  toTeam   Team @relation("MatchRequestToTeam", fields: [toTeamId], references: [id], onDelete: Cascade)
   fromUser User @relation("MatchRequestSender", fields: [fromUserId], references: [id], onDelete: Cascade)
 
+  @@index([fromTeamId])
+  @@index([toTeamId])
+  @@index([status])
   @@map("match_requests")
 }
 

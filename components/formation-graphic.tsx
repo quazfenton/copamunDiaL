@@ -44,10 +44,10 @@ export default function FormationGraphic({ sport, formation, players, onSwap }) 
   )
 }
 
-function PlayerPosition({ index, position, player, onSwap }) {
+function PlayerPosition({ index, position, player, onSwap }: any) {
   const [{ isOver }, drop] = useDrop({
     accept: "player-icon",
-    drop: (item) => onSwap(item.index, index),
+    drop: (item: any) => onSwap(item.index, index),
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
     }),
@@ -63,7 +63,11 @@ function PlayerPosition({ index, position, player, onSwap }) {
 
   return (
     <motion.div
-      ref={(node) => drag(drop(node))}
+      ref={(node: HTMLDivElement | null) => {
+        if (node) {
+          drag(drop(node))
+        }
+      }}
       className={`absolute ${isOver ? "bg-blue-500 bg-opacity-50 rounded-full p-2" : ""}`}
       style={{
         top: position.top,

@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
           where: { teamId: team.id },
           select: { userId: true }
         });
-        const memberIds = teamMembers.map(tm => tm.userId);
+        const memberIds = teamMembers.map((tm: any) => tm.userId);
         playerWhere.id = { notIn: [...memberIds, userSession.id] };
       }
 
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
 
       // Apply radius filtering if coordinates and radius are provided
       if (!isNaN(latitude) && !isNaN(longitude) && !isNaN(radius)) {
-        players = players.filter(player => {
+        players = players.filter((player: any) => {
           if (player.latitude && player.longitude) {
             const distance = calculateDistance(latitude, longitude, player.latitude, player.longitude);
             return distance <= radius;
@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
       const currentUserTeamIds = (await prisma.teamMember.findMany({
         where: { userId: userSession.id },
         select: { teamId: true }
-      })).map(tm => tm.teamId);
+      })).map((tm: any) => tm.teamId);
 
       let teamWhere: any = {
         id: { notIn: currentUserTeamIds }, // Don't recommend teams user is already in
@@ -161,22 +161,10 @@ export async function GET(request: NextRequest) {
           wins: true,
           losses: true,
           draws: true,
-          latitude: true, // Include latitude for distance calculation
-          longitude: true, // Include longitude for distance calculation
         },
         take: 10,
       });
 
-      // Apply radius filtering if coordinates and radius are provided
-      if (!isNaN(latitude) && !isNaN(longitude) && !isNaN(radius)) {
-        teams = teams.filter(team => {
-          if (team.latitude && team.longitude) {
-            const distance = calculateDistance(latitude, longitude, team.latitude, team.longitude);
-            return distance <= radius;
-          }
-          return false;
-        });
-      }
       recommendations = teams;
 
     } else if (type === "match") {
@@ -227,7 +215,7 @@ export async function GET(request: NextRequest) {
 
       // Apply radius filtering if coordinates and radius are provided
       if (!isNaN(latitude) && !isNaN(longitude) && !isNaN(radius)) {
-        matches = matches.filter(match => {
+        matches = matches.filter((match: any) => {
           if (match.latitude && match.longitude) {
             const distance = calculateDistance(latitude, longitude, match.latitude, match.longitude);
             return distance <= radius;

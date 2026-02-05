@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
 
     // Apply radius filtering if coordinates and radius are provided
     if (!isNaN(userLatitude) && !isNaN(userLongitude) && !isNaN(radius)) {
-      pickupGames = pickupGames.filter(game => {
+      pickupGames = pickupGames.filter((game: any) => {
         if (game.latitude && game.longitude) {
           const distance = calculateDistance(userLatitude, userLongitude, game.latitude, game.longitude);
           return distance <= radius;
@@ -105,8 +105,13 @@ export async function POST(request: NextRequest) {
 
     const newPickupGame = await prisma.pickupGame.create({
       data: {
-        ...validatedData,
-        date: validatedData.date, // date is already a Date object due to z.coerce.date()
+        date: validatedData.date,
+        location: validatedData.location,
+        latitude: validatedData.latitude,
+        longitude: validatedData.longitude,
+        sport: validatedData.sport,
+        playersNeeded: validatedData.playersNeeded,
+        description: validatedData.description,
         organizerId: session.user.id,
       },
     });

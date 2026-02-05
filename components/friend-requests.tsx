@@ -29,7 +29,7 @@ export default function FriendRequests({ currentUserId }: FriendRequestsProps) {
     const fetchRequests = async () => {
       try {
         const data = await apiClient.getFriendRequests(); // Assuming this API call exists
-        setRequests(data);
+        setRequests(data as any);
       } catch (error: any) {
         console.error("Failed to fetch friend requests:", error);
         toast({

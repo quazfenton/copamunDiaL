@@ -14,7 +14,7 @@ const createMessageSchema = z.object({
 // Get messages for a specific team
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -23,7 +23,7 @@ export async function GET(
     }
     const user = session.user;
 
-    const teamId = params.id;
+    const { id: teamId } = await params;
     const { searchParams } = new URL(request.url);
     const take = parseInt(searchParams.get('take') || '50'); // For pagination
     const skip = parseInt(searchParams.get('skip') || '0'); // For pagination
@@ -71,7 +71,7 @@ export async function GET(
 // Send a message to a specific team
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -80,7 +80,7 @@ export async function POST(
     }
     const user = session.user;
 
-    const teamId = params.id;
+    const { id: teamId } = await params;
     const body = await request.json();
     const validatedData = createMessageSchema.parse(body);
 
