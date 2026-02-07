@@ -258,7 +258,13 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
 // Send skip waiting message to service worker
 export function skipWaiting(): void {
+export function skipWaiting(): void {
+  if (!('serviceWorker' in navigator)) {
+    console.warn('Service workers not supported, cannot send skip waiting message.')
+    return
+  }
   navigator.serviceWorker.controller?.postMessage({ type: 'SKIP_WAITING' })
+}
 }
 
 // Helper functions
