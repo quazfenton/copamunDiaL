@@ -91,7 +91,7 @@ async function cacheFirst(request) {
     }
     return response
   } catch (error) {
-    return caches.match('/offline.html')
+return undefined
   }
 }
 
