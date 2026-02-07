@@ -67,7 +67,7 @@ function SportsManagementAppContent() {
   // Real-time hooks
   const { socket, isConnected } = useSocket()
   const { notifications } = useNotifications()
-  const { onlineUsers, setOnline, setOnline, setOffline, setOffline } = useUserPresence()
+  const { onlineUsers, isUserOnline, setOnline, setOffline } = useUserPresence()
 
   const currentUserId = session?.user?.id
 
@@ -412,7 +412,7 @@ function SportsManagementAppContent() {
           isOpen={isProfileOpen}
           onClose={() => setIsProfileOpen(false)}
           player={selectedPlayer}
-          currentUserId={currentUserId}
+          currentUserId={currentUserId ? parseInt(currentUserId) : undefined}
         />
 
         <MatchScheduling
