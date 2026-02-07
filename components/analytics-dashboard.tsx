@@ -77,7 +77,9 @@ export function AnalyticsDashboard({ players, teams, matches, currentUserId }: A
     const completedMatches = matches.filter(m => m.status === 'COMPLETED').length
     const totalGoals = players.reduce((sum, p) => sum + (p.stats?.goals || 0), 0)
     const totalAssists = players.reduce((sum, p) => sum + (p.stats?.assists || 0), 0)
-    const avgRating = players.reduce((sum, p) => sum + (p.stats?.rating || 0), 0) / players.length
+    const avgRating = players.length > 0
+      ? players.reduce((sum, p) => sum + (p.stats?.rating || 0), 0) / players.length
+      : 0
     
     return { totalMatches, completedMatches, totalGoals, totalAssists, avgRating }
   }, [matches, players])
