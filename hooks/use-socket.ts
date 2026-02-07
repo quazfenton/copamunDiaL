@@ -16,20 +16,22 @@ export function useSocket(url?: string) {
         path: '/api/socket',
         addTrailingSlash: false,
       });
-
-      socketInstance.on('connect', () => {
-        setIsConnected(true);
-      });
-
-      socketInstance.on('disconnect', () => {
-        setIsConnected(false);
-      });
     }
+
+    // Sync current state for late-mounting components
+    setIsConnected(socketInstance.connected);
+
+    const onConnect = () => setIsConnected(true);
+    const onDisconnect = () => setIsConnected(false);
+
+    socketInstance.on('connect', onConnect);
+    socketInstance.on('disconnect', onDisconnect);
 
     setSocket(socketInstance);
 
     return () => {
-      // Don't disconnect singleton on unmount
+      socketInstance?.off('connect', onConnect);
+      socketInstance?.off('disconnect', onDisconnect);
     };
   }, [url]);
 
