@@ -116,7 +116,7 @@ export async function GET(
     });
 
     const isTeamMember = team?.members && team.members.length > 0;
-    const isTeamCaptain = team?.captains.some((c: any) => c.id === session.user.id);
+    const isTeamCaptain = team?.captains?.some((c: any) => c.id === session.user.id) ?? false;
     const isTeamCreator = team?.createdBy === session.user.id;
 
     if (!isTeamMember && !isTeamCaptain && !isTeamCreator) {
