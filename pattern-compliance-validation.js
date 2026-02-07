@@ -86,7 +86,7 @@ class PatternValidator {
     }
 
     // Check 3: Await pattern for parameter access
-    const awaitPattern = /const\s*\{\s*id\s*\}\s*=\s*await\s+params/g;
+    const awaitPattern = /const\s*\{\s*id\s*(?::\s*\w+)?\s*\}\s*=\s*await\s+params/g;
     const awaitMatches = content.match(awaitPattern);
     
     if (!awaitMatches) {
