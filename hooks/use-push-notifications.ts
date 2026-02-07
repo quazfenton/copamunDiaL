@@ -128,6 +128,9 @@ export function usePushNotifications() {
 
       if (!subscription) {
         // Create new subscription
+if (!VAPID_PUBLIC_KEY) {
+          throw new Error('VAPID_PUBLIC_KEY is not set. Push notifications cannot be subscribed to without it.')
+        }
         const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         
         subscription = await registration.pushManager.subscribe({
