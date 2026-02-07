@@ -67,7 +67,7 @@ function getClientIdentifier(request: NextRequest): string {
   // Include user agent for additional uniqueness (optional)
   const userAgent = request.headers.get('user-agent') || ''
   
-  return `${ip}:${userAgent.slice(0, 50)}`
+return ip
 }
 
 /**
