@@ -55,7 +55,7 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
     setIsSearching(true);
     try {
       const results = await apiClient.getPlayers({ search: searchTerm }) as any;
-      setSearchResults((results.data || results).filter((p: any) => p.id !== currentUserId && !friends.some((f: any) => f.id === p.id)));
+      setSearchResults((results.data || results).filter((p: any) => p.id !== String(currentUserId) && !friends.some((f: any) => f.id === p.id)));
     } catch (error: any) {
       console.error("Failed to search players:", error);
       toast({
