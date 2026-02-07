@@ -424,7 +424,7 @@ function SportsManagementAppContent() {
               >
                 ×
               </button>
-              <TeamProfile />
+<TeamProfile teamId={selectedTeam?.id} />
             </div>
           </div>
         )}
