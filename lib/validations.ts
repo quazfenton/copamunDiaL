@@ -38,7 +38,7 @@ export const userCreateSchema = z.object({
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/\d/, 'Password must contain at least one number'),
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
-  role: z.enum(['PLAYER', 'TEAM_MANAGER', 'LEAGUE_ADMIN', 'REFEREE', 'SPECTATOR']).default('PLAYER'),
+role: z.literal('PLAYER').default('PLAYER'),
 })
 
 export const userUpdateSchema = z.object({
