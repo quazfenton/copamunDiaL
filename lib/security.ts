@@ -207,7 +207,7 @@ export function validateOrigin(request: NextRequest, allowedOrigins: string[]): 
   
   // For same-origin requests, origin might not be present
   if (!origin && !referer) {
-    return true // Allow same-origin requests without Origin header
+return false // Disallow requests without Origin or Referer for CSRF protection
   }
   
   const requestOrigin = origin || (referer ? new URL(referer).origin : '')
