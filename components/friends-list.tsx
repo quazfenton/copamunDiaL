@@ -33,7 +33,9 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
     setLoading(true);
     try {
       const data = await apiClient.getFriends(); // Assuming this API call exists
-      setFriends(data as any);
+      // Normalize the response to ensure it's an array of Player objects
+      const normalizedData = Array.isArray(data) ? data : (data.data || []);
+      setFriends(normalizedData);
     } catch (error: any) {
       console.error("Failed to fetch friends:", error);
       toast({
@@ -57,7 +59,7 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
       const results: any[] = await apiClient.getPlayers({ search: searchTerm }) as any;
       // Normalize the response to ensure it's an array of Player objects
       const normalizedResults = Array.isArray(results) ? results : [];
-      setSearchResults((normalizedResults.data || results).filter((p: any) => p.id !== currentUserId && !friends.some((f: any) => f.id === p.id)));
+      setSearchResults((normalizedResults.data || results).filter((p: any) => parseInt(p.id) !== currentUserId && !friends.some((f: any) => f.id === p.id)));
     } catch (error: any) {
       console.error("Failed to search players:", error);
       toast({

@@ -80,7 +80,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
         try {
           // Assuming an API call to check friendship status
           // This API call needs to be implemented in apiClient and backend
-          const status = await apiClient.getFriendshipStatus(displayPlayer.id); // Pass target user ID
+          const status = await apiClient.getFriendshipStatus(parseInt(displayPlayer.id)); // Pass target user ID
           if (status === "friends") {
             setIsFriend(true);
           } else if (status === "pending_sent") {
@@ -151,7 +151,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
   const handleSendFriendRequest = async () => {
     if (!displayPlayer?.id) return;
     try {
-      await apiClient.sendFriendRequest(displayPlayer.id);
+      await apiClient.sendFriendRequest(parseInt(displayPlayer.id));
       setHasSentRequest(true);
       toast({
         title: "Friend Request Sent",

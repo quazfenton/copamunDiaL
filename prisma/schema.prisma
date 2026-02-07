@@ -313,6 +313,7 @@ enum BracketType {
   DOUBLE_ELIMINATION
   ROUND_ROBIN
   SWISS
+  GROUP_STAGE
 }
 
 enum TournamentStatus {
@@ -495,6 +496,7 @@ enum MatchStatus {
   LIVE
   COMPLETED
   CANCELLED
+  PENDING
 }
 
 enum InviteStatus {

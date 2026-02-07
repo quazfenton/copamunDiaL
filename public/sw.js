@@ -108,10 +108,17 @@ async function networkFirstWithCache(request) {
   } catch (error) {
     const cached = await caches.match(request)
     if (cached) return cached
-    return new Response(JSON.stringify({ error: 'Offline', cached: false }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    
+    // Only return the offline response for navigation requests
+    if (request.mode === 'navigate') {
+      return new Response(JSON.stringify({ error: 'Offline', cached: false }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    
+    // For other request types, let the error propagate naturally
+    throw new Error('Network request failed')
   }
 }
 

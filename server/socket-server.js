@@ -100,23 +100,31 @@ async function getRoomMembers(teamId) {
 }
 
 async function getUserConnections(userId) {
-  // Get all user sockets by scanning for user:* keys
-  const userKeys = await redisClient.keys('user:*');
+  // Get all user sockets by scanning for user:* keys using SCAN to avoid blocking
   const sockets = [];
+  let cursor = '0';
   
-  for (const key of userKeys) {
-    const userInfo = await redisClient.hGetAll(key);
-    if (userInfo.userId === userId) {
-      sockets.push(userInfo.socketId);
+  do {
+    const result = await redisClient.scan(cursor, { MATCH: 'user:*', COUNT: 100 });
+    cursor = result.cursor;
+    const userKeys = result.keys;
+    
+    for (const key of userKeys) {
+      const userInfo = await redisClient.hGetAll(key);
+      if (userInfo.userId === userId) {
+        sockets.push(userInfo.socketId);
+      }
     }
-  }
-  
+  } while (cursor !== '0');
+
   return sockets;
 }
 
 async function trackUserPresence(socketId, userId, userName) {
   const userKey = `user:${socketId}`;
   await redisClient.hSet(userKey, { userId, userName, socketId });
+  // Set TTL for user presence data to avoid orphaned keys
+  await redisClient.expire(userKey, 3600); // 1 hour TTL
 }
 
 async function removeUserPresence(socketId) {
@@ -387,30 +395,45 @@ async function startServer() {
       socket.on('disconnect', async (reason) => {
         console.log(`🔌 Client disconnected: ${socket.id}, reason: ${reason}`);
 
-        // Clean up user presence
-        const userData = await redisClient.hGetAll(`user:${socket.id}`);
-        if (Object.keys(userData).length > 0) {
-          const { userId, userName } = userData;
+        try {
+          // Clean up user presence
+          const userData = await redisClient.hGetAll(`user:${socket.id}`);
+          if (Object.keys(userData).length > 0) {
+            const { userId, userName } = userData;
 
-          // Broadcast offline status
-          socket.broadcast.emit('user-status-change', {
-            userId,
-            userName,
-            status: 'offline',
-            timestamp: new Date().toISOString(),
-          });
+            // Broadcast offline status
+            socket.broadcast.emit('user-status-change', {
+              userId,
+              userName,
+              status: 'offline',
+              timestamp: new Date().toISOString(),
+            });
 
-          await removeUserPresence(socket.id);
-          console.log(`👤 User offline: ${userName} (${userId})`);
-        }
+            await removeUserPresence(socket.id);
+            console.log(`👤 User offline: ${userName} (${userId})`);
+          }
 
-        // Clean up room memberships - we need to check all possible rooms this user was in
-        // Since we don't know which rooms the user was in, we'll need to iterate through all rooms
-        // and remove the user from each one where they exist
-        const roomKeys = await redisClient.keys('room:*');
-        for (const roomKey of roomKeys) {
-          const teamId = roomKey.replace('room:', '');
-          await removeUserFromRoom(socket.id, teamId);
+          // Clean up room memberships - we need to check all possible rooms this user was in
+          // Since we don't know which rooms the user was in, we'll need to iterate through all rooms
+          // and remove the user from each one where they exist
+          const roomKeys = await redisClient.keys('room:*');
+          for (const roomKey of roomKeys) {
+            const teamId = roomKey.replace('room:', '');
+            // Get room members before removing user to notify them
+            const membersBeforeRemoval = await getRoomMembers(teamId);
+            await removeUserFromRoom(socket.id, teamId);
+            
+            // Notify remaining members that user left
+            const roomName = `team-${teamId}`;
+            socket.to(roomName).emit('member-left', {
+              userId: userData.userId,
+              userName: userData.userName,
+              teamId,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        } catch (error) {
+          console.error(`❌ Error during disconnect handling for socket ${socket.id}:`, error);
         }
       });
     });
@@ -419,18 +442,28 @@ async function startServer() {
     const http = require('http');
     const server = http.createServer(async (req, res) => {
       if (req.url === '/health') {
-        // Count rooms by getting all room keys
-        const roomKeys = await redisClient.keys('room:*');
-        const roomCount = roomKeys.length;
-        
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          status: 'healthy',
-          connections: io.engine.clientsCount,
-          rooms: roomCount,
-          uptime: process.uptime(),
-          timestamp: new Date().toISOString(),
-        }));
+        try {
+          // Count rooms by getting all room keys
+          const roomKeys = await redisClient.keys('room:*');
+          const roomCount = roomKeys.length;
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            status: 'healthy',
+            connections: io.engine.clientsCount,
+            rooms: roomCount,
+            uptime: process.uptime(),
+            timestamp: new Date().toISOString(),
+          }));
+        } catch (error) {
+          console.error('Health check failed:', error);
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            status: 'unhealthy',
+            error: 'Redis connection failed',
+            timestamp: new Date().toISOString(),
+          }));
+        }
       } else {
         res.writeHead(404);
         res.end();

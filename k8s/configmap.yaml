@@ -6,6 +6,7 @@ metadata:
 data:
   NODE_ENV: "production"
   NEXT_TELEMETRY_DISABLED: "1"
+  NEXTAUTH_URL: "https://copamundial.yourdomain.com"
   NEXT_PUBLIC_SITE_URL: "https://copamundial.yourdomain.com"
   SOCKET_SERVER_URL: "https://socket.copamundial.yourdomain.com"
   REDIS_URL: "redis://redis:6379"

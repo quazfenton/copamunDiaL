@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      ${{ github.event_name == 'pull_request' && 'contents: read' || 'packages: write' }}
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -124,8 +124,8 @@ jobs:
       #
       # - name: Deploy to Kubernetes
       #   run: |
-      #     kubectl set image deployment/copamundial-app app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-app -n copamundial
-      #     kubectl set image deployment/copamundial-socket socket-server=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-socket -n copamundial
+      #     kubectl set image deployment/copamundial-app app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-app:latest -n copamundial
+      #     kubectl set image deployment/copamundial-socket socket-server=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-socket:latest -n copamundial
       #     kubectl rollout status deployment/copamundial-app -n copamundial
       #     kubectl rollout status deployment/copamundial-socket -n copamundial
 

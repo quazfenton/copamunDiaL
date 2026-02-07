@@ -67,7 +67,7 @@ function SportsManagementAppContent() {
   // Real-time hooks
   const { socket, isConnected } = useSocket()
   const { notifications } = useNotifications()
-  const { onlineUsers, isUserOnline, setOnline, setOffline } = useUserPresence()
+  const { onlineUsers, setOnline, setOffline } = useUserPresence()
 
   const currentUserId = session?.user?.id
 
@@ -80,7 +80,7 @@ function SportsManagementAppContent() {
     return () => {
       setOffline();
     };
-  }, [session?.user?.id, setOnline, setOffline]);
+  }, [session?.user?.id]);
 
   // Load initial data
   useEffect(() => {
@@ -465,7 +465,7 @@ function SportsManagementAppContent() {
         />
 
         {/* Team Chat */}
-        {selectedTeam && (
+        {selectedTeam && isTeamChatOpen && (
           <TeamChat
             teamId={selectedTeam.id}
           />

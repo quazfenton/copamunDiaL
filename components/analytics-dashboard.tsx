@@ -74,7 +74,7 @@ export function AnalyticsDashboard({ players, teams, matches, currentUserId }: A
   // Calculate aggregate stats
   const aggregateStats = useMemo(() => {
     const totalMatches = matches.length
-    const completedMatches = matches.filter(m => m.status === 'COMPLETED').length
+    const completedMatches = matches.filter(m => m.status === 'completed').length
     const totalGoals = players.reduce((sum, p) => sum + (p.stats?.goals || 0), 0)
     const totalAssists = players.reduce((sum, p) => sum + (p.stats?.assists || 0), 0)
     const avgRating = players.reduce((sum, p) => sum + (p.stats?.rating || 0), 0) / players.length
@@ -104,8 +104,8 @@ export function AnalyticsDashboard({ players, teams, matches, currentUserId }: A
     return Object.entries(positions).map(([name, value]) => ({ name, value }))
   }, [players])
 
-  const performanceTrend = selectedPlayer ? generatePerformanceTrend(selectedPlayer.id) : []
-  const skillsData = selectedPlayer ? generateSkillsData(selectedPlayer) : []
+  const performanceTrend = useMemo(() => selectedPlayer ? generatePerformanceTrend(selectedPlayer.id) : [], [selectedPlayer])
+  const skillsData = useMemo(() => selectedPlayer ? generateSkillsData(selectedPlayer) : [], [selectedPlayer])
 
   return (
     <div className="space-y-6 p-6">

@@ -49,8 +49,17 @@ function cleanupExpiredEntries() {
 }
 
 // Run cleanup every 5 minutes
+let cleanupInterval: NodeJS.Timeout | null = null;
 if (typeof setInterval !== 'undefined') {
-  setInterval(cleanupExpiredEntries, 5 * 60 * 1000)
+  cleanupInterval = setInterval(cleanupExpiredEntries, 5 * 60 * 1000);
+}
+
+// Export cleanup function to allow clearing the interval
+export function stopRateLimitCleanup() {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+  }
 }
 
 /**
@@ -144,7 +153,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
   // Content Security Policy (adjust as needed)
   headers.set('Content-Security-Policy', [
     "default-src 'self'",
-"script-src 'self' 'unsafe-inline'",
+    "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",

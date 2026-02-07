@@ -79,18 +79,26 @@ const FORMATION_POSITIONS: Record<string, string[]> = {
 function calculatePositionFit(player: Player, position: string): number {
   const weights = POSITION_SKILL_WEIGHTS[position] || POSITION_SKILL_WEIGHTS['CM']
   const stats = player.stats || { rating: 5 }
-  
+
   // Simulate skill scores based on rating (in real app, would have actual skill data)
   const baseRating = stats.rating || 5
   const skillModifier = player.preferredPositions?.includes(position) ? 1.2 : 1.0
-  
+
   let score = baseRating * skillModifier
-  
+
+  // Apply position-specific skill weights if available
+  if (weights) {
+    // In a real implementation, we would have actual skill values for each player
+    // For now, we'll use the rating as a base and apply position weights
+    const weightSum = Object.values(weights).reduce((sum, val) => sum + val, 0)
+    score = score * (1 + weightSum / 10) // Apply a weighted adjustment
+  }
+
   // Add bonus for matching preferred position
   if (player.position === position) {
     score *= 1.15
   }
-  
+
   return Math.min(10, Math.max(0, score))
 }
 
@@ -467,12 +475,12 @@ export function predictMatchOutcome(homeTeam: TeamData, awayTeam: TeamData): Mat
  * Calculate overall team strength score
  */
 function calculateTeamStrength(team: TeamData): number {
-  if (team.players.length === 0) return 5
-  
-  const avgRating = team.players.reduce((sum, p) => sum + (p.stats?.rating || 5), 0) / team.players.length
+  if (team.players.length === 0) return 0
+
+  const avgRating = team.players.reduce((sum, p) => sum + (p.stats?.rating || 0), 0) / team.players.length
   const squadBonus = Math.min(1, team.players.length / 11) * 0.5
   const winRateBonus = ((team.wins / Math.max(1, team.wins + team.losses + team.draws)) * 0.3)
-  
+
   return avgRating + squadBonus + winRateBonus
 }
 
