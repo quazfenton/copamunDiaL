@@ -22,7 +22,7 @@ const STATIC_ASSETS = [
   '/icons/icon-512x512.png',
 ]
 
-const API_CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+// const API_CACHE_DURATION = 5 * 60 * 1000 // 5 minutes (Currently unused; cache expiration not implemented)
 
 // ============================================
 // Installation & Activation
