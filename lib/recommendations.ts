@@ -342,8 +342,19 @@ export function getTeamInsights(team: TeamData, recentMatches: MatchData[] = [])
     })
   }
   
-  const avgRating = team.players.reduce((sum, p) => sum + (p.stats?.rating || 0), 0) / team.players.length
-  if (avgRating < 5 && team.players.length > 0) {
+  if (team.players.length > 0) {
+    const avgRating = team.players.reduce((sum, p) => sum + (p.stats?.rating || 0), 0) / team.players.length
+    if (avgRating < 5) {
+      insights.push({
+        type: 'weakness',
+        category: 'Quality',
+        title: 'Low Team Rating',
+        description: 'Team average rating is below par.',
+        impact: 'medium',
+        actionable: 'Focus on player development or recruit higher-rated players',
+      })
+    }
+  }
     insights.push({
       type: 'weakness',
       category: 'Quality',
