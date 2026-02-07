@@ -63,11 +63,7 @@ function PlayerPosition({ index, position, player, onSwap }: any) {
 
   return (
     <motion.div
-      ref={(node: HTMLDivElement | null) => {
-        if (node) {
-          drag(drop(node))
-        }
-      }}
+      ref={(node) => drag(drop(node))}
       className={`absolute ${isOver ? "bg-blue-500 bg-opacity-50 rounded-full p-2" : ""}`}
       style={{
         top: position.top,
