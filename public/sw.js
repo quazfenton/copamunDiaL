@@ -274,8 +274,7 @@ self.addEventListener('notificationclick', (event) => {
               action: event.action,
               data: data,
             })
-            client.navigate(urlToOpen)
-            return client.focus()
+            return client.navigate(urlToOpen).then((c) => c.focus())
           }
         }
         // Open new window
