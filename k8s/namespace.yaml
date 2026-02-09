@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: copamundial
+  labels:
+    name: copamundial
+    app.kubernetes.io/name: copamundial
+    app.kubernetes.io/component: namespace

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: copamundial-config
+  namespace: copamundial
+data:
+  NODE_ENV: "production"
+  NEXT_TELEMETRY_DISABLED: "1"
+  NEXT_PUBLIC_SITE_URL: "https://copamundial.yourdomain.com"
+  SOCKET_SERVER_URL: "https://socket.copamundial.yourdomain.com"
+  REDIS_URL: "redis://redis:6379"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: copamundial-secrets
+  namespace: copamundial
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://copamundial:changeme@postgres:5432/copamundial"
+  NEXTAUTH_SECRET: "your-secret-key-here"
+  GOOGLE_CLIENT_ID: ""
+  GOOGLE_CLIENT_SECRET: ""
