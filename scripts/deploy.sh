@@ -36,7 +36,9 @@ if [ ! -f .env ]; then
 fi
 
 # Load environment variables
-export $(grep -v '^#' .env | xargs)
+set -a
+source .env
+set +a
 
 # Build Docker images
 print_info "Building Docker images..."

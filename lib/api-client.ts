@@ -215,6 +215,13 @@ class ApiClient {
     return this.get('/friends');
   }
 
+  async searchPlayers(params: { search?: string }) {
+    const searchParams = new URLSearchParams()
+    if (params?.search) searchParams.set('search', params.search)
+    const query = searchParams.toString()
+    return this.get(`/players/search${query ? `?${query}` : ''}`);
+  }
+
   async sendFriendRequest(toUserId: number) {
     return this.post('/friends/requests', { toUserId });
   }

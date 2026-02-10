@@ -199,8 +199,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const inviteId = params.id; // This 'id' param is actually the inviteId
-    const { status } = await request.json();
+    const teamId = params.id; // This 'id' param is the teamId
+    const { inviteId, status } = await request.json();
+
+    if (!inviteId || !status) {
+      return NextResponse.json({ error: 'Missing inviteId or status' }, { status: 400 });
+    }
 
     if (!Object.values(InviteStatus).includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
@@ -211,7 +215,7 @@ export async function PATCH(
       include: { team: true, to: true },
     });
 
-    if (!existingInvite || existingInvite.toId !== session.user.id) {
+    if (!existingInvite || existingInvite.toId !== session.user.id || existingInvite.teamId !== teamId) {
       return NextResponse.json({ error: 'Invite not found or not authorized' }, { status: 404 });
     }
 
@@ -247,14 +251,19 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const inviteId = params.id; // This 'id' param is actually the inviteId
+    const teamId = params.id; // This 'id' param is the teamId
+    const { inviteId } = await request.json(); // Get inviteId from request body
+
+    if (!inviteId) {
+      return NextResponse.json({ error: 'Missing inviteId' }, { status: 400 });
+    }
 
     const existingInvite = await prisma.teamInvite.findUnique({
       where: { id: inviteId },
       include: { team: true, from: true, to: true },
     });
 
-    if (!existingInvite) {
+    if (!existingInvite || existingInvite.teamId !== teamId) {
       return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
     }
 

@@ -67,9 +67,20 @@ function SportsManagementAppContent() {
   // Real-time hooks
   const { socket, isConnected } = useSocket()
   const { notifications } = useNotifications()
-  const { onlineUsers, isUserOnline } = useUserPresence()
+  const { onlineUsers, isUserOnline, setOnline, setOffline } = useUserPresence()
 
   const currentUserId = session?.user?.id
+
+  // Set user as online when component mounts and offline when unmounts
+  useEffect(() => {
+    if (session?.user?.id) {
+      setOnline();
+    }
+
+    return () => {
+      setOffline();
+    };
+  }, [session?.user?.id, setOnline, setOffline]);
 
   // Load initial data
   useEffect(() => {
@@ -396,7 +407,7 @@ function SportsManagementAppContent() {
           isOpen={isProfileOpen}
           onClose={() => setIsProfileOpen(false)}
           player={selectedPlayer}
-          currentUserId={currentUserId}
+          currentUserId={currentUserId || ''}
         />
 
         <MatchScheduling

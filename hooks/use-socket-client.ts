@@ -36,16 +36,32 @@ const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhos
 
 export function useSocket(options: SocketOptions = {}): UseSocketReturn {
   const { userId, userName, autoConnect = true, onConnect, onDisconnect, onError } = options;
-  
+
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Store callbacks in refs to prevent reconnection storms
+  const onConnectRef = useRef(onConnect);
+  const onDisconnectRef = useRef(onDisconnect);
+  const onErrorRef = useRef(onError);
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onConnectRef.current = onConnect;
+    onDisconnectRef.current = onDisconnect;
+    onErrorRef.current = onError;
+  }, [onConnect, onDisconnect, onError]);
+
   // Initialize socket connection
   const connect = useCallback(() => {
-    if (socketRef.current?.connected) return;
-    
+    // Clean up existing socket if present to prevent resource leaks
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
     setIsConnecting(true);
     setError(null);
 
@@ -71,30 +87,30 @@ export function useSocket(options: SocketOptions = {}): UseSocketReturn {
         socket.emit('user-online', { userId, userName });
       }
 
-      onConnect?.();
+      onConnectRef.current?.();
     });
 
     socket.on('disconnect', (reason) => {
       console.log('🔌 Socket disconnected:', reason);
       setIsConnected(false);
       setIsConnecting(false);
-      onDisconnect?.(reason);
+      onDisconnectRef.current?.(reason);
     });
 
     socket.on('connect_error', (err) => {
       console.error('❌ Socket connection error:', err);
       setError(err);
       setIsConnecting(false);
-      onError?.(err);
+      onErrorRef.current?.(err);
     });
 
     socket.on('error', (err: Error) => {
       console.error('❌ Socket error:', err);
       setError(err);
-      onError?.(err);
+      onErrorRef.current?.(err);
     });
 
-  }, [userId, userName, onConnect, onDisconnect, onError]);
+  }, [userId, userName]);
 
   // Disconnect socket
   const disconnect = useCallback(() => {
@@ -156,16 +172,25 @@ export function useSocket(options: SocketOptions = {}): UseSocketReturn {
     }
   }, [isConnected, userId, userName]);
 
+  // Stabilize connect and disconnect functions using refs
+  const connectRef = useRef(connect);
+  const disconnectRef = useRef(disconnect);
+
+  useEffect(() => {
+    connectRef.current = connect;
+    disconnectRef.current = disconnect;
+  }, [connect, disconnect]);
+
   // Auto-connect on mount
   useEffect(() => {
     if (autoConnect) {
-      connect();
+      connectRef.current();
     }
 
     return () => {
-      disconnect();
+      disconnectRef.current();
     };
-  }, [autoConnect, connect, disconnect]);
+  }, [autoConnect]);
 
   return {
     socket: socketRef.current,
@@ -266,3 +291,49 @@ export function useTeamSocket(teamId: string, userId?: string, userName?: string
     isConnected,
   };
 }
+
+// Hook for user presence management
+export const useUserPresence = () => {
+  const [onlineUsers, setOnlineUsers] = useState<Record<string, boolean>>({});
+  const [isOnline, setIsOnline] = useState(false);
+
+  // In a real implementation, this would connect to the socket
+  // and listen for user presence events
+  const setOnline = () => {
+    setIsOnline(true);
+    // In a real implementation, emit to socket server
+  };
+
+  const setOffline = () => {
+    setIsOnline(false);
+    // In a real implementation, emit to socket server
+  };
+
+  const isUserOnline = (userId: string) => {
+    return !!onlineUsers[userId];
+  };
+
+  // In a real implementation, you would subscribe to presence events
+  // useEffect(() => {
+  //   const socket = // get socket instance
+  //   socket.on('user-online', (data) => {
+  //     setOnlineUsers(prev => ({ ...prev, [data.userId]: true }));
+  //   });
+  //   socket.on('user-offline', (data) => {
+  //     setOnlineUsers(prev => ({ ...prev, [data.userId]: false }));
+  //   });
+  //   
+  //   return () => {
+  //     socket.off('user-online');
+  //     socket.off('user-offline');
+  //   };
+  // }, []);
+
+  return {
+    onlineUsers,
+    isOnline,
+    setOnline,
+    setOffline,
+    isUserOnline
+  };
+};

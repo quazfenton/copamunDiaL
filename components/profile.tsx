@@ -23,7 +23,7 @@ interface ProfileProps {
   isOpen: boolean
   onClose: () => void
   player?: any
-  currentUserId?: number
+  currentUserId?: string
 }
 
 export default function Profile({ isOpen, onClose, player, currentUserId }: ProfileProps) {

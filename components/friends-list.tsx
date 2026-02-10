@@ -32,8 +32,10 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
   const fetchFriends = async () => {
     setLoading(true);
     try {
-      const data = await apiClient.getFriends(); // Assuming this API call exists
-      setFriends(data);
+      const data: any[] = await apiClient.getFriends(); // Assuming this API call exists
+      // Normalize the response to ensure it's an array of Player objects
+      const normalizedFriends = Array.isArray(data) ? data : [];
+      setFriends(normalizedFriends);
     } catch (error: any) {
       console.error("Failed to fetch friends:", error);
       toast({
@@ -54,8 +56,10 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
     }
     setIsSearching(true);
     try {
-      const results = await apiClient.searchPlayers({ search: searchTerm }); // Assuming searchPlayers exists
-      setSearchResults(results.filter((p: Player) => p.id !== currentUserId && !friends.some(f => f.id === p.id)));
+      const results: any[] = await apiClient.searchPlayers({ search: searchTerm }); // Assuming searchPlayers exists
+      // Normalize the response to ensure it's an array of Player objects
+      const normalizedResults = Array.isArray(results) ? results : [];
+      setSearchResults(normalizedResults.filter((p: Player) => p.id !== currentUserId && !friends.some(f => f.id === p.id)));
     } catch (error: any) {
       console.error("Failed to search players:", error);
       toast({

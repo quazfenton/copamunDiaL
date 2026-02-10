@@ -23,9 +23,20 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         // Return cached version or fetch from network
         return response || fetch(event.request)
+          .then(networkResponse => {
+            // If network request succeeds, return it
+            return networkResponse;
+          })
+          .catch(() => {
+            // Return a fallback response for network failures
+            return new Response('Offline', {
+              status: 200,
+              headers: { 'Content-Type': 'text/html' }
+            });
+          });
       })
-  )
-})
+  );
+});
 
 // Activate event
 self.addEventListener('activate', (event) => {

@@ -17,7 +17,10 @@ metadata:
   namespace: copamundial
 type: Opaque
 stringData:
-  DATABASE_URL: "postgresql://copamundial:changeme@postgres:5432/copamundial"
-  NEXTAUTH_SECRET: "your-secret-key-here"
-  GOOGLE_CLIENT_ID: ""
-  GOOGLE_CLIENT_SECRET: ""
+  # These values should be replaced with actual secrets at deployment time
+  # Using placeholder values for demonstration purposes only
+  # In production, use a secret manager like External Secrets or Sealed Secrets
+  DATABASE_URL: ""  # Will be injected at deployment time
+  NEXTAUTH_SECRET: ""  # Will be injected at deployment time
+  GOOGLE_CLIENT_ID: ""  # Will be injected at deployment time
+  GOOGLE_CLIENT_SECRET: ""  # Will be injected at deployment time
