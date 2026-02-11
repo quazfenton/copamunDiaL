@@ -2,10 +2,10 @@
 
 /**
  * Next.js 15 API Migration Pattern Compliance Validation
- * 
+ *
  * This script validates that all target files have been successfully migrated
  * to use the Next.js 15 Promise-based parameter pattern.
- * 
+ *
  * Requirements being validated:
  * - 1.1: Parameter handlers use NextJS15_Pattern with Promise type annotation
  * - 1.4: Parameter access follows the pattern `const { id } = await params`
@@ -14,7 +14,6 @@
  */
 
 const fs = require('fs');
-const path = require('path');
 
 // Target files to validate
 const TARGET_FILES = [

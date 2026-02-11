@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { authOptions } from ' @/lib/auth'
+import { prisma } from ' @/lib/db'
 import { z } from 'zod'
-import { handleError } from '@/lib/error-handler' // Import handleError
+import { handleError } from ' @/lib/error-handler' // Import handleError
 
 const createPlayerSchema = z.object({
   name: z.string().min(1),

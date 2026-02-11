@@ -141,7 +141,14 @@ export default function CalendarView({ isOpen, onClose }: CalendarViewProps) {
                       awayTeam={event.awayTeam}
                       time={format(event.dateObj, "HH:mm")}
                       location={event.location}
-                      status={event.status as any}
+                     <DayEventCard 
+                       key={event.id}
+                       homeTeam={event.homeTeam}
+                       awayTeam={event.awayTeam}
+                       time={format(event.dateObj, "HH:mm")}
+                       location={event.location}
+                       status={event.status === "COMPLETED" ? "completed" : event.status === "CANCELLED" ? "cancelled" : "scheduled"}
+                     />
                     />
                   ))}
                 </div>
