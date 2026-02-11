@@ -423,6 +423,15 @@ export function predictMatchOutcome(homeTeam: TeamData, awayTeam: TeamData): Mat
   
   // Calculate probabilities (simplified model)
   const totalStrength = adjustedHomeStrength + awayStrength
+  if (totalStrength === 0) {
+    return {
+      winProbability: 33,
+      drawProbability: 34,
+      lossProbability: 33,
+      keyFactors: ['Insufficient data for prediction'],
+      recommendations: ['Both teams need more players for accurate predictions'],
+    }
+  }
   const baseWinProb = adjustedHomeStrength / totalStrength
   const baseLossProb = awayStrength / totalStrength
   

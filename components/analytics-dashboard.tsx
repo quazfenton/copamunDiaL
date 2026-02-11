@@ -455,8 +455,7 @@ export function AnalyticsDashboard({ players, teams, matches, currentUserId }: A
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {players
-                    .toSorted((a, b) => (b.stats?.goals || 0) - (a.stats?.goals || 0))
+                  {[...players].sort((a, b) => (b.stats?.goals || 0) - (a.stats?.goals || 0))
                     .slice(0, 5)
                     .map((player, index) => (
                       <motion.div

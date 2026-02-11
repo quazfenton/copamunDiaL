@@ -41,6 +41,8 @@ spec:
           envFrom:
             - configMapRef:
                 name: copamundial-config
+            - secretRef:
+                name: copamundial-secrets
           env:
             - name: SOCKET_PORT
               value: "3001"

@@ -153,7 +153,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
   // Content Security Policy (adjust as needed)
   headers.set('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
@@ -216,10 +216,17 @@ export function validateOrigin(request: NextRequest, allowedOrigins: string[]): 
   
   // For same-origin requests, origin might not be present
   if (!origin && !referer) {
-return false // Disallow requests without Origin or Referer for CSRF protection
+    return false
   }
   
-  const requestOrigin = origin || (referer ? new URL(referer).origin : '')
+  let requestOrigin = origin || ''
+  if (!requestOrigin && referer) {
+    try {
+      requestOrigin = new URL(referer).origin
+    } catch {
+      return false
+    }
+  }
   
   return allowedOrigins.some(allowed => requestOrigin === allowed)
 }
@@ -329,7 +336,7 @@ export function createAuditLog(
     timestamp: new Date().toISOString(),
     action,
     userId,
-    ip: getClientIdentifier(request).split(':')[0],
+    ip: getClientIdentifier(request),
     userAgent: request.headers.get('user-agent'),
     path: request.nextUrl.pathname,
     method: request.method,
