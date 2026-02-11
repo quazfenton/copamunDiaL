@@ -468,6 +468,7 @@ function SportsManagementAppContent() {
         {selectedTeam && isTeamChatOpen && (
           <TeamChat
             teamId={selectedTeam.id}
+            onClose={() => setIsTeamChatOpen(false)}
           />
         )}
 
