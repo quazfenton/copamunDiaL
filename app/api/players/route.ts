@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from ' @/lib/auth'
-import { prisma } from ' @/lib/db'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { handleError } from ' @/lib/error-handler' // Import handleError
+import { handleError } from '@/lib/error-handler' // Import handleError
 
 const createPlayerSchema = z.object({
   name: z.string().min(1),
@@ -16,14 +16,6 @@ const createPlayerSchema = z.object({
 })
 
 const updatePlayerSchema = createPlayerSchema.partial()
-
-function handleError(error: unknown) {
-  if (error instanceof z.ZodError) {
-    return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
-  }
-  console.error('API Error:', error)
-  return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-}
 
 export async function GET(request: NextRequest) {
   try {

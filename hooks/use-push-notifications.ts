@@ -131,11 +131,11 @@ export function usePushNotifications() {
 if (!VAPID_PUBLIC_KEY) {
           throw new Error('VAPID_PUBLIC_KEY is not set. Push notifications cannot be subscribed to without it.')
         }
-        const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        
+        const uint8Array = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey,
+          applicationServerKey: uint8Array as any,
         })
 
         // Send subscription to server
@@ -182,12 +182,6 @@ if (!VAPID_PUBLIC_KEY) {
       throw error
     }
   }, [state.subscription])
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to unsubscribe'
-      setState(prev => ({ ...prev, isLoading: false, error: message }))
-      throw error
-    }
-  }, [state.subscription])
 
   // Show local notification
   const showNotification = useCallback(async (payload: NotificationPayload): Promise<void> => {
@@ -208,7 +202,6 @@ if (!VAPID_PUBLIC_KEY) {
         type: payload.type,
         ...payload.data,
       },
-      actions: payload.actions,
     })
   }, [])
 

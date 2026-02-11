@@ -5,8 +5,15 @@ import { motion } from "framer-motion"
 import PlayerIcon from "@/components/player-icon"
 import { formationPositions } from "@/lib/data"
 
-export default function FormationGraphic({ sport, formation, players, onSwap }) {
-  const positions = formationPositions[sport]?.[formation] || []
+interface FormationGraphicProps {
+  sport: string;
+  formation: string;
+  players: any[];
+  onSwap: (fromIndex: number, toIndex: number) => void;
+}
+
+export default function FormationGraphic({ sport, formation, players, onSwap }: FormationGraphicProps) {
+  const positions = (formationPositions as any)[sport]?.[formation] || []
 
   const getBackgroundImage = () => {
     switch (sport) {
@@ -31,23 +38,30 @@ export default function FormationGraphic({ sport, formation, players, onSwap }) 
 
   return (
     <div className="relative w-full h-[600px] rounded-lg overflow-hidden" style={backgroundStyle}>
-      {positions.map((position, index) => (
-        <PlayerPosition 
-          key={index} 
-          index={index} 
-          position={position} 
-          player={players[index]} 
-          onSwap={onSwap} 
+      {positions.map((position: { top: string; left: string }, index: number) => (
+        <PlayerPosition
+          key={index}
+          index={index}
+          position={position}
+          player={players[index]}
+          onSwap={onSwap}
         />
       ))}
     </div>
   )
 }
 
-function PlayerPosition({ index, position, player, onSwap }: any) {
+interface PlayerPositionProps {
+  index: number;
+  position: { top: string; left: string };
+  player: any;
+  onSwap: (fromIndex: number, toIndex: number) => void;
+}
+
+function PlayerPosition({ index, position, player, onSwap }: PlayerPositionProps) {
   const [{ isOver }, drop] = useDrop({
     accept: "player-icon",
-    drop: (item: any) => onSwap(item.index, index),
+    drop: (item: { index: number }) => onSwap(item.index, index),
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
     }),
@@ -61,9 +75,15 @@ function PlayerPosition({ index, position, player, onSwap }: any) {
     }),
   })
 
+  const refCallback = (node: HTMLDivElement | null) => {
+    if (node) {
+      drag(drop(node));
+    }
+  };
+
   return (
     <motion.div
-      ref={(node) => drag(drop(node))}
+      ref={refCallback}
       className={`absolute ${isOver ? "bg-blue-500 bg-opacity-50 rounded-full p-2" : ""}`}
       style={{
         top: position.top,

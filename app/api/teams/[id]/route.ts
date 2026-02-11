@@ -209,8 +209,8 @@ export async function PATCH(
       updatedAt: updatedTeam.updatedAt.toISOString(),
       captains: Array.from(captainIds),
       players: updatedTeam.members
-        .filter(m => !m.isReserve)
-        .map(m => ({
+        .filter((m: any) => !m.isReserve)
+        .map((m: any) => ({
           ...m.user,
           stats: {
             matches: m.user.matches,
@@ -222,8 +222,8 @@ export async function PATCH(
           isCaptain: captainIds.has(m.user.id) // Optimized lookup
         })),
       reserves: updatedTeam.members
-        .filter(m => m.isReserve)
-        .map(m => ({
+        .filter((m: any) => m.isReserve)
+        .map((m: any) => ({
           ...m.user,
           stats: {
             matches: m.user.matches,

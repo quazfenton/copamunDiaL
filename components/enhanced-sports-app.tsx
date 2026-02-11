@@ -334,7 +334,7 @@ function SportsManagementAppContent() {
             onHomeClick={() => {/* Navigate to home */}}
             onNotificationsClick={() => {/* Show notifications */}}
             unreadNotificationsCount={notifications.filter((n: any) => !n.isRead).length}
-            isCaptain={selectedTeam?.captains?.includes(session?.user?.id) || false}
+            isCaptain={session?.user?.id && selectedTeam?.captains ? selectedTeam.captains.includes(session.user.id) : false}
             onBuildFormationClick={() => {/* Open formation builder */}}
             onFriendsClick={() => {/* Open friends */}}
           />
@@ -399,7 +399,7 @@ function SportsManagementAppContent() {
         <TeamManagement
           isOpen={isTeamManagementOpen}
           onClose={() => setIsTeamManagementOpen(false)}
-          currentTeam={selectedTeam}
+          currentTeam={selectedTeam || undefined}
           players={players}
         />
 
@@ -423,7 +423,7 @@ function SportsManagementAppContent() {
         <MatchFinder
           isOpen={isMatchFinderOpen}
           onClose={() => setIsMatchFinderOpen(false)}
-          currentTeam={selectedTeam}
+          currentTeam={selectedTeam || undefined}
         />
 
         {isTeamProfileOpen && (
@@ -468,7 +468,6 @@ function SportsManagementAppContent() {
         {selectedTeam && isTeamChatOpen && (
           <TeamChat
             teamId={selectedTeam.id}
-            onClose={() => setIsTeamChatOpen(false)}
           />
         )}
 

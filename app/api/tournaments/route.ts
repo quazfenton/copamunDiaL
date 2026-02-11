@@ -36,9 +36,13 @@ export async function GET(request: NextRequest) {
 
     const limit = Math.min(Math.max(parseInt(rawLimit) || 20, 1), 100)
     const offset = Math.max(parseInt(rawOffset) || 0, 0)
+    
+    const where: any = {}
+    
+    if (status) {
       where.status = status
     }
-    
+
     if (sport) {
       where.sport = sport
     }

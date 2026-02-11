@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, MessageCircle, Users, Settings, UserPlus } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { useSocket, useTeamSocket, useNotifications, useUserPresence } from "@/hooks/use-socket"
+import { useSocket, useNotifications, useUserPresence } from "@/hooks/use-socket"
 import { Player, TeamData, Notification } from "@/lib/types"
 import LoginForm from "@/components/auth/login-form"
 import RegisterForm from "@/components/auth/register-form"
@@ -35,6 +35,7 @@ import NotificationCenter from "@/components/notification-center"
 import FriendsList from "@/components/friends-list"
 import FriendRequests from "@/components/friend-requests"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const sports = ["Soccer", "Basketball", "American Football", "Baseball"]
 const formations = {
@@ -47,7 +48,7 @@ const formations = {
 function SportsManagementAppContent() {
   const { data: session, status } = useSession();
   const [selectedSport, setSelectedSport] = useState(sports[0])
-  const [selectedFormation, setSelectedFormation] = useState(formations[selectedSport][0])
+  const [selectedFormation, setSelectedFormation] = useState((formations as any)[selectedSport][0])
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [showRegisterForm, setShowRegisterForm] = useState(false)
   const [isFormationBuilderOpen, setIsFormationBuilderOpen] = useState(false)
@@ -58,16 +59,16 @@ function SportsManagementAppContent() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<TeamData[]>([]);
   const [matches, setMatches] = useState([]);
-  const [leagues, setLeagues] = useState([]);
-  const [pickupGames, setPickupGames] = useState([]);
+  const [leagues, setLeagues] = useState<any[]>([]);
+  const [pickupGames, setPickupGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Current user and team state
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  const [currentTeamId, setCurrentTeamId] = useState<number | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentTeamId, setCurrentTeamId] = useState<string | null>(null);
   const [userTeams, setUserTeams] = useState<TeamData[]>([]);
-  
+
   // Current team data
   const currentTeam = teams.find(team => team.id === currentTeamId);
   
@@ -87,15 +88,15 @@ function SportsManagementAppContent() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
   
   // Notification state
-  const { notifications, setNotifications: setSocketNotifications } = useNotifications();
+  const { notifications } = useNotifications();
   const [allNotifications, setAllNotifications] = useState<Notification[]>([]);
 
-  const unreadNotificationsCount = useMemo(() => 
+  const unreadNotificationsCount = useMemo(() =>
     allNotifications.filter(n => !n.isRead).length
   , [allNotifications]);
 
-  const pendingNotificationsForPopups = useMemo(() => 
-    allNotifications.filter(n => !n.isRead && n.status === 'pending')
+  const pendingNotificationsForPopups = useMemo(() =>
+    allNotifications.filter(n => !n.isRead && n.status === 'PENDING')
   , [allNotifications]);
 
   useEffect(() => {
@@ -137,16 +138,16 @@ function SportsManagementAppContent() {
         apiClient.getNotifications(),
       ]);
       setPlayers(playersRes.data);
-      setTeams(teamsRes);
+      setTeams(teamsRes as TeamData[]);
       setMatches(matchesRes.data);
-      setLeagues(leaguesRes.data);
-      setPickupGames(pickupGamesRes);
-      setAllNotifications(notificationsRes);
+      setLeagues(leaguesRes.data as any[]);
+      setPickupGames(pickupGamesRes as any[]);
+      setAllNotifications(notificationsRes as Notification[]);
 
       if (session?.user?.id) {
         const user = playersRes.data.find(p => p.id === session.user.id);
         if (user) {
-          const userTeams = teamsRes.filter(team => user.teams.includes(team.id));
+          const userTeams = (teamsRes as TeamData[]).filter(team => user.teams.includes(team.id));
           setUserTeams(userTeams);
           if (userTeams.length > 0) {
             setCurrentTeamId(userTeams[0].id);
@@ -163,7 +164,7 @@ function SportsManagementAppContent() {
 
   const handleSportChange = (sport: string) => {
     setSelectedSport(sport)
-    setSelectedFormation(formations[selectedSport][0])
+    setSelectedFormation((formations as any)[sport][0])
   }
 
   const handlePlayerMove = (result: any) => {
@@ -176,18 +177,18 @@ function SportsManagementAppContent() {
     setIsProfileOpen(true)
   }
 
-  const handleNotificationAccept = async (notificationId: number) => {
-    await apiClient.respondToTeamInvite(notificationId.toString(), 'ACCEPTED');
+  const handleNotificationAccept = async (notificationId: string) => {
+    await apiClient.respondToTeamInvite(notificationId, 'ACCEPTED');
     fetchData();
   }
 
-  const handleNotificationDecline = async (notificationId: number) => {
-    await apiClient.respondToTeamInvite(notificationId.toString(), 'DECLINED');
+  const handleNotificationDecline = async (notificationId: string) => {
+    await apiClient.respondToTeamInvite(notificationId, 'DECLINED');
     fetchData();
   }
 
-  const handleNotificationDismiss = async (notificationId: number) => {
-    await apiClient.markNotificationRead(notificationId.toString());
+  const handleNotificationDismiss = async (notificationId: string) => {
+    await apiClient.markNotificationRead(notificationId);
     fetchData();
   }
 
@@ -231,7 +232,7 @@ function SportsManagementAppContent() {
     <DndProvider backend={HTML5Backend}>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black">
         {/* Side Menu - Always visible on the left */}
-        <SideMenu 
+        <SideMenu
           onMyTeamClick={() => setIsTeamManagementOpen(true)}
           onFindMatchClick={() => setIsMatchFinderOpen(true)}
           onScheduleClick={() => setIsMatchSchedulingOpen(true)}
@@ -247,6 +248,7 @@ function SportsManagementAppContent() {
           }}
           onNotificationsClick={() => setIsNotificationCenterOpen(true)}
           unreadNotificationsCount={unreadNotificationsCount}
+          isCaptain={currentUserId ? (currentTeam?.captains?.includes(currentUserId) || false) : false}
           onBuildFormationClick={() => setIsFormationBuilderOpen(true)}
           onFriendsClick={() => setIsFriendsDialogOpen(true)}
         />
@@ -266,9 +268,9 @@ function SportsManagementAppContent() {
                 {/* Team Selection Dropdown if user has multiple teams */}
                 {userTeams.length > 1 && (
                   <div className="mt-4">
-                    <select 
-                      value={currentTeamId || ''} 
-                      onChange={(e) => setCurrentTeamId(parseInt(e.target.value))}
+                    <select
+                      value={currentTeamId || ''}
+                      onChange={(e) => setCurrentTeamId(e.target.value)}
                       className="bg-black/50 text-white border border-white/20 rounded px-3 py-2"
                     >
                       {userTeams.map(team => (
@@ -287,7 +289,7 @@ function SportsManagementAppContent() {
                   onSelectSport={handleSportChange}
                 />
                 <FormationSelector
-                  formations={formations[selectedSport]}
+                  formations={(formations as any)[selectedSport]}
                   selectedFormation={selectedFormation}
                   onSelectFormation={setSelectedFormation}
                 />
@@ -298,12 +300,12 @@ function SportsManagementAppContent() {
                 <SportField
                   sport={selectedSport}
                   formation={selectedFormation}
-                  players={currentTeam.players.map(pId => players.find(p => p.id === pId)).filter(Boolean) as Player[]}
-                  reserves={currentTeam.reserves.map(pId => players.find(p => p.id === pId)).filter(Boolean) as Player[]}
+                  players={currentTeam?.players || []}
+                  reserves={currentTeam?.reserves || []}
                   onPlayerMove={handlePlayerMove}
                   onPlayerClick={handlePlayerClick}
-                  currentUserId={currentUserId}
-                  teamCaptains={currentTeam.captains}
+                  currentUserId={currentUserId || undefined}
+                  teamCaptains={currentTeam?.captains || []}
                 />
               </div>
             </div> {/* End of main content div */}
@@ -329,7 +331,7 @@ function SportsManagementAppContent() {
           isOpen={isProfileOpen}
           onClose={() => setIsProfileOpen(false)}
           player={selectedPlayer}
-          currentUserId={currentUserId}
+          currentUserId={currentUserId || undefined}
         />
         
         <MatchScheduling
@@ -345,19 +347,9 @@ function SportsManagementAppContent() {
           />
         )}
         
-        {currentTeam && (
-          <TeamProfile
-            isOpen={isTeamProfileOpen}
-            onClose={() => setIsTeamProfileOpen(false)}
-            team={currentTeam}
-            currentUserId={currentUserId}
-          />
-        )}
+        {/* TeamProfile is a standalone page component that fetches its own data */}
         
-        <LeaguesManager
-          isOpen={isLeaguesOpen}
-          onClose={() => setIsLeaguesOpen(false)}
-        />
+        {/* LeaguesManager is a standalone page component that manages its own state */}
         
         <CalendarView
           isOpen={isCalendarOpen}
@@ -369,26 +361,7 @@ function SportsManagementAppContent() {
           onClose={() => setIsPickupGamesOpen(false)}
         />
         
-        {/* Notification System (for temporary pop-ups) */}
-        <NotificationSystem
-          isOpen={isNotificationsOpen}
-          onClose={() => setIsNotificationsOpen(false)}
-          notifications={pendingNotificationsForPopups}
-          onAccept={handleNotificationAccept}
-          onDecline={handleNotificationDecline}
-          onDismiss={handleNotificationDismiss}
-        />
-
-        {/* Notification Center (for full view) */}
-        <NotificationCenter
-          isOpen={isNotificationCenterOpen}
-          onClose={() => setIsNotificationCenterOpen(false)}
-          notifications={allNotifications}
-          onAccept={handleNotificationAccept}
-          onDecline={handleNotificationDecline}
-          onDismiss={handleNotificationDismiss}
-          onMarkAllRead={handleMarkAllNotificationsRead}
-        />
+        {/* NotificationCenter is a standalone component that manages its own state */}
 
         <FormationBuilder
           isOpen={isFormationBuilderOpen}

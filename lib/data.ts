@@ -1,4 +1,4 @@
-import { Player, TeamData, MatchData, LeagueData, PickupGameData, FormationType } from './types';
+import { Player, TeamData, MatchData, LeagueData, PickupGameData, FormationType, MatchStatus } from './types';
 
 // Formation positions for different sports
 export const formationPositions = {
@@ -159,137 +159,137 @@ export const formationPositions = {
 
 // Players data
 export const players: Player[] = [
-  { 
-    id: 1, 
-    name: "John Doe", 
+  {
+    id: "1",
+    name: "John Doe",
     firstName: "John",
-    position: "Forward", 
-    preferredPositions: ["Forward", "Midfielder"], 
-    avatar: "/placeholder.svg", 
+    position: "Forward",
+    preferredPositions: ["Forward", "Midfielder"],
+    avatar: "/placeholder.svg",
     isCaptain: true,
-    teams: [1],
+    teams: ["1"],
     bio: "Passionate soccer player with excellent scoring ability.",
     email: "john.doe@example.com",
     phone: "+1 (555) 123-4567",
     location: "New York, USA",
     stats: { matches: 42, goals: 28, assists: 15, rating: 4.2 }
   },
-  { 
-    id: 2, 
-    name: "Jane Smith", 
+  {
+    id: "2",
+    name: "Jane Smith",
     firstName: "Jane",
-    position: "Midfielder", 
-    preferredPositions: ["Midfielder", "Defender"], 
+    position: "Midfielder",
+    preferredPositions: ["Midfielder", "Defender"],
     avatar: "/placeholder.svg",
-    teams: [1],
+    teams: ["1"],
     bio: "Creative midfielder with excellent passing skills.",
     email: "jane.smith@example.com",
     stats: { matches: 38, goals: 8, assists: 22, rating: 4.0 }
   },
-  { 
-    id: 3, 
-    name: "Mike Johnson", 
+  {
+    id: "3",
+    name: "Mike Johnson",
     firstName: "Mike",
-    position: "Defender", 
-    preferredPositions: ["Defender"], 
+    position: "Defender",
+    preferredPositions: ["Defender"],
     avatar: "/placeholder.svg",
-    teams: [1],
+    teams: ["1"],
     bio: "Solid defender with strong aerial ability.",
     email: "mike.johnson@example.com",
     stats: { matches: 40, goals: 3, assists: 8, rating: 3.8 }
   },
-  { 
-    id: 4, 
-    name: "Sarah Williams", 
+  {
+    id: "4",
+    name: "Sarah Williams",
     firstName: "Sarah",
-    position: "Goalkeeper", 
-    preferredPositions: ["Goalkeeper"], 
+    position: "Goalkeeper",
+    preferredPositions: ["Goalkeeper"],
     avatar: "/placeholder.svg",
-    teams: [1],
+    teams: ["1"],
     bio: "Reliable goalkeeper with quick reflexes.",
     email: "sarah.williams@example.com",
     stats: { matches: 35, goals: 0, assists: 2, rating: 4.1 }
   },
-  { 
-    id: 5, 
-    name: "Tom Brown", 
+  {
+    id: "5",
+    name: "Tom Brown",
     firstName: "Tom",
-    position: "Forward", 
-    preferredPositions: ["Forward"], 
+    position: "Forward",
+    preferredPositions: ["Forward"],
     avatar: "/placeholder.svg",
-    teams: [1],
+    teams: ["1"],
     bio: "Fast striker with great finishing ability.",
     email: "tom.brown@example.com",
     stats: { matches: 30, goals: 18, assists: 7, rating: 3.9 }
   },
-  { 
-    id: 6, 
-    name: "Emily Davis", 
+  {
+    id: "6",
+    name: "Emily Davis",
     firstName: "Emily",
-    position: "Midfielder", 
-    preferredPositions: ["Midfielder", "Forward"], 
+    position: "Midfielder",
+    preferredPositions: ["Midfielder", "Forward"],
     avatar: "/placeholder.svg",
-    teams: [1],
+    teams: ["1"],
     bio: "Versatile player who can play multiple positions.",
     email: "emily.davis@example.com",
     stats: { matches: 36, goals: 12, assists: 14, rating: 3.7 }
   },
-  { 
-    id: 7, 
-    name: "David Wilson", 
+  {
+    id: "7",
+    name: "David Wilson",
     firstName: "David",
-    position: "Defender", 
-    preferredPositions: ["Defender", "Midfielder"], 
+    position: "Defender",
+    preferredPositions: ["Defender", "Midfielder"],
     avatar: "/placeholder.svg",
-    teams: [2],
+    teams: ["2"],
     bio: "Strong defender who can also play in midfield.",
     email: "david.wilson@example.com",
     stats: { matches: 32, goals: 4, assists: 9, rating: 3.6 }
   },
-  { 
-    id: 8, 
-    name: "Lisa Taylor", 
+  {
+    id: "8",
+    name: "Lisa Taylor",
     firstName: "Lisa",
-    position: "Midfielder", 
-    preferredPositions: ["Midfielder"], 
+    position: "Midfielder",
+    preferredPositions: ["Midfielder"],
     avatar: "/placeholder.svg",
-    teams: [2],
+    teams: ["2"],
     bio: "Box-to-box midfielder with great work rate.",
     email: "lisa.taylor@example.com",
     stats: { matches: 34, goals: 7, assists: 11, rating: 3.8 }
   },
-  { 
-    id: 9, 
-    name: "Robert Martinez", 
+  {
+    id: "9",
+    name: "Robert Martinez",
     firstName: "Robert",
-    position: "Forward", 
-    preferredPositions: ["Forward"], 
+    position: "Forward",
+    preferredPositions: ["Forward"],
     avatar: "/placeholder.svg",
-    teams: [2],
+    teams: ["2"],
     bio: "Clinical finisher with great positioning.",
     email: "robert.martinez@example.com",
     stats: { matches: 29, goals: 21, assists: 6, rating: 4.0 }
   },
-  { 
-    id: 10, 
-    name: "Jessica Anderson", 
+  {
+    id: "10",
+    name: "Jessica Anderson",
     firstName: "Jessica",
-    position: "Defender", 
-    preferredPositions: ["Defender"], 
+    position: "Defender",
+    preferredPositions: ["Defender"],
     avatar: "/placeholder.svg",
-    teams: [2],
+    teams: ["2"],
     bio: "Tough defender with leadership qualities.",
     email: "jessica.anderson@example.com",
     stats: { matches: 31, goals: 2, assists: 5, rating: 3.7 }
   },
-  { 
-    id: 11, 
-    name: "Michael Thomas", 
+  {
+    id: "11",
+    name: "Michael Thomas",
     firstName: "Michael",
-    position: "Goalkeeper", 
-    preferredPositions: ["Goalkeeper"], 
+    position: "Goalkeeper",
+    preferredPositions: ["Goalkeeper"],
     avatar: "/placeholder.svg",
-    teams: [2],
+    teams: ["2"],
     bio: "Experienced goalkeeper with excellent shot-stopping.",
     email: "michael.thomas@example.com",
     stats: { matches: 33, goals: 0, assists: 1, rating: 3.9 }
@@ -299,39 +299,39 @@ export const players: Player[] = [
 // Teams data
 export const teams: TeamData[] = [
   {
-    id: 1,
+    id: "1",
     name: "John's Team",
     logo: "/placeholder.svg",
     bio: "A competitive team focused on attacking football and teamwork.",
     players: players.slice(0, 6),
     reserves: [],
-    captains: [1],
+    captains: ["1"],
     formation: "4-4-2",
     wins: 5,
     losses: 2,
     draws: 1,
-    createdBy: 1,
+    createdBy: "1",
     location: "New York, USA",
     isPrivate: false
   },
   {
-    id: 2,
+    id: "2",
     name: "Rival FC",
     logo: "/placeholder.svg",
     bio: "An experienced team with a strong defensive style.",
     players: players.slice(6, 11),
     reserves: [],
-    captains: [7],
+    captains: ["7"],
     formation: "4-3-3",
     wins: 4,
     losses: 3,
     draws: 1,
-    createdBy: 7,
+    createdBy: "7",
     location: "Brooklyn, NY",
     isPrivate: false
   },
   {
-    id: 3,
+    id: "3",
     name: "City United",
     logo: "/placeholder.svg",
     bio: "A young and dynamic team with fast-paced gameplay.",
@@ -342,7 +342,7 @@ export const teams: TeamData[] = [
     wins: 6,
     losses: 1,
     draws: 1,
-    createdBy: 0,
+    createdBy: "0",
     location: "Manhattan, NY",
     isPrivate: false
   }
@@ -351,35 +351,35 @@ export const teams: TeamData[] = [
 // Matches data
 export const matches: MatchData[] = [
   {
-    id: 1,
+    id: "1",
     homeTeam: teams[0],
     awayTeam: teams[1],
     date: "2023-06-15",
     time: "15:00",
     location: "Main Stadium",
-    status: "completed",
+    status: MatchStatus.COMPLETED,
     score: {
       home: 2,
       away: 1
     }
   },
   {
-    id: 2,
+    id: "2",
     homeTeam: teams[0],
     awayTeam: teams[2],
     date: "2023-06-22",
     time: "18:30",
     location: "City Arena",
-    status: "scheduled"
+    status: MatchStatus.SCHEDULED
   },
   {
-    id: 3,
+    id: "3",
     homeTeam: teams[1],
     awayTeam: teams[2],
     date: "2023-06-08",
     time: "20:00",
     location: "Rival Stadium",
-    status: "completed",
+    status: MatchStatus.COMPLETED,
     score: {
       home: 0,
       away: 2
@@ -390,7 +390,7 @@ export const matches: MatchData[] = [
 // Leagues data
 export const leagues: LeagueData[] = [
   {
-    id: 1,
+    id: "1",
     name: "Premier League",
     teams: teams,
     matches: matches,
@@ -398,7 +398,7 @@ export const leagues: LeagueData[] = [
     endDate: "2023-07-30"
   },
   {
-    id: 2,
+    id: "2",
     name: "Champions Cup",
     teams: teams.slice(0, 2),
     matches: matches.slice(0, 1),
@@ -410,7 +410,7 @@ export const leagues: LeagueData[] = [
 // Pickup games data
 export const pickupGames: PickupGameData[] = [
   {
-    id: 1,
+    id: "1",
     location: "Community Field",
     date: "2023-06-18",
     time: "17:00",
@@ -420,7 +420,7 @@ export const pickupGames: PickupGameData[] = [
     organizer: players[0]
   },
   {
-    id: 2,
+    id: "2",
     location: "Downtown Court",
     date: "2023-06-20",
     time: "19:00",

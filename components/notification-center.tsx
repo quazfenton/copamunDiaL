@@ -18,7 +18,7 @@ export default function NotificationCenter() {
   const { data: session } = useSession();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const socket = useSocket(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
+  const { socket } = useSocket(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
 
   useEffect(() => {
     if (!session?.user?.id) return;

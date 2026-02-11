@@ -85,8 +85,8 @@ export default function TeamProfile() {
   if (error) return <div className="text-red-500">Error: {error}</div>;
   if (!team) return <div>Team not found.</div>;
 
-  const isTeamMember = team.players.some(p => p.id === session?.user?.id) || team.reserves.some(r => r.id === session?.user?.id);
-  const isCaptainOrCreator = team.captains.includes(session?.user?.id || '') || team.createdBy === session?.user?.id;
+  const isTeamMember = session?.user?.id ? (team.players.some(p => p.id === session.user.id) || team.reserves.some(r => r.id === session.user.id)) : false;
+  const isCaptainOrCreator = session?.user?.id ? (team.captains.includes(session.user.id) || team.createdBy === session.user.id) : false;
 
   return (
     <div className="space-y-6 p-4">

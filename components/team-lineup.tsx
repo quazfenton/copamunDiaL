@@ -9,7 +9,12 @@ import FormationGraphic from "@/components/formation-graphic"
 import { players as initialPlayers } from "@/lib/data"
 import { Player } from "@/lib/types"
 
-export default function TeamLineup({ sport, formation }) {
+interface TeamLineupProps {
+  sport: string;
+  formation: string;
+}
+
+export default function TeamLineup({ sport, formation }: TeamLineupProps) {
   const [players, setPlayers] = useState<Player[]>(initialPlayers)
   const [lineup, setLineup] = useState<Player[]>([])
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null)
@@ -22,7 +27,7 @@ export default function TeamLineup({ sport, formation }) {
 
   const [, drop] = useDrop({
     accept: "player",
-    drop: (item: { id: number }, monitor) => {
+    drop: (item: { id: string }, monitor) => {
       const dropResult = monitor.getDropResult()
       if (item && dropResult) {
         const updatedLineup = [...lineup]
@@ -36,7 +41,7 @@ export default function TeamLineup({ sport, formation }) {
     },
   })
 
-  const removeFromLineup = (playerId: number) => {
+  const removeFromLineup = (playerId: string) => {
     const playerToRemove = lineup.find((p) => p.id === playerId)
     if (playerToRemove) {
       setLineup(lineup.filter((p) => p.id !== playerId))
@@ -62,12 +67,17 @@ export default function TeamLineup({ sport, formation }) {
           <h2 className="text-2xl font-bold mb-4">
             Team Lineup - {sport} ({formation})
           </h2>
-          <div ref={drop} className="bg-gray-800 bg-opacity-50 backdrop-blur-md p-4 rounded-lg min-h-[400px]">
-            <FormationGraphic 
-              sport={sport} 
-              formation={formation} 
-              players={lineup} 
-              onSwap={swapPlayers} 
+          <div 
+            ref={(node) => {
+              if (node) drop(node);
+            }} 
+            className="bg-gray-800 bg-opacity-50 backdrop-blur-md p-4 rounded-lg min-h-[400px]"
+          >
+            <FormationGraphic
+              sport={sport}
+              formation={formation}
+              players={lineup}
+              onSwap={swapPlayers}
             />
           </div>
         </div>
