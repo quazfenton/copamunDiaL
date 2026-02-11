@@ -14,9 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
-import { 
-  Trophy, Medal, Star, Calendar, MapPin, Clock, 
-  User, Mail, Phone, Globe, Camera, Edit, Loader2, UserPlus
+import {
+  Trophy, Medal, Star, Calendar, MapPin, Clock,
+  User, Mail, Phone, Globe, Camera, Edit, Loader2, UserPlus, Users
 } from "lucide-react"
 
 interface ProfileProps {
@@ -223,12 +223,12 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
                   <span className="text-sm text-gray-400 ml-1">({displayPlayer.stats?.rating || 4.0})</span>
                 </div>
                 <div className="flex flex-wrap justify-center gap-2 mt-2">
-                  <Badge>{displayPlayer.position}</Badge>
-                  {displayPlayer.isCaptain && <Badge>Team Captain</Badge>}
-                  {displayPlayer.preferredPositions?.[0]?.toLowerCase() !== displayPlayer.position?.toLowerCase() && 
-                    displayPlayer.preferredPositions?.map(pos => 
+                  <CustomBadge>{displayPlayer.position}</CustomBadge>
+                  {displayPlayer.isCaptain && <CustomBadge>Team Captain</CustomBadge>}
+                  {displayPlayer.preferredPositions?.[0]?.toLowerCase() !== displayPlayer.position?.toLowerCase() &&
+                    displayPlayer.preferredPositions?.map((pos: string) =>
                       pos !== displayPlayer.position && (
-                        <Badge key={pos} variant="outline">{pos}</Badge>
+                        <CustomBadge key={pos}>{pos}</CustomBadge>
                       )
                   )}
                 </div>
@@ -505,7 +505,7 @@ export default function Profile({ isOpen, onClose, player, currentUserId }: Prof
   )
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
+function CustomBadge({ children }: { children: React.ReactNode }) {
   return (
     <span className="px-2 py-1 bg-blue-900/50 text-blue-300 rounded-full text-xs font-medium">
       {children}

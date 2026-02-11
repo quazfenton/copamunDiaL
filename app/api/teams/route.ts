@@ -110,8 +110,8 @@ export async function GET(request: NextRequest) {
       skip
     })
 
-    const formattedTeams = teams.map(team => {
-      const captainIds = new Set(team.captains.map(c => c.id));
+    const formattedTeams = teams.map((team: any) => {
+      const captainIds = new Set(team.captains.map((c: any) => c.id));
       return ({
         id: team.id,
         name: team.name,
@@ -129,8 +129,8 @@ export async function GET(request: NextRequest) {
         updatedAt: team.updatedAt.toISOString(),
         captains: Array.from(captainIds),
         players: team.members
-          .filter(m => !m.isReserve)
-          .map(m => ({
+          .filter((m: any) => !m.isReserve)
+          .map((m: any) => ({
             ...m.user,
             stats: {
               matches: m.user.matches,
@@ -141,8 +141,8 @@ export async function GET(request: NextRequest) {
             isCaptain: captainIds.has(m.user.id)
           })),
         reserves: team.members
-          .filter(m => m.isReserve)
-          .map(m => ({
+          .filter((m: any) => m.isReserve)
+          .map((m: any) => ({
             ...m.user,
             stats: {
               matches: m.user.matches,
@@ -241,10 +241,10 @@ export async function POST(request: NextRequest) {
       createdBy: team.createdBy,
       createdAt: team.createdAt.toISOString(),
       updatedAt: team.updatedAt.toISOString(),
-      captains: team.captains.map(c => c.id),
+      captains: team.captains.map((c: any) => c.id),
       players: team.members
-        .filter(m => !m.isReserve)
-        .map(m => ({
+        .filter((m: any) => !m.isReserve)
+        .map((m: any) => ({
           ...m.user,
           stats: {
             matches: m.user.matches,
@@ -253,11 +253,11 @@ export async function POST(request: NextRequest) {
             rating: m.user.rating || 0
           },
           teams: [team.id],
-          isCaptain: team.captains.some(c => c.id === m.user.id)
+          isCaptain: team.captains.some((c: any) => c.id === m.user.id)
         })),
       reserves: team.members
-        .filter(m => m.isReserve)
-        .map(m => ({
+        .filter((m: any) => m.isReserve)
+        .map((m: any) => ({
           ...m.user,
           stats: {
             matches: m.user.matches,
@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
             rating: m.user.rating || 0
           },
           teams: [team.id],
-          isCaptain: team.captains.some(c => c.id === m.user.id)
+          isCaptain: team.captains.some((c: any) => c.id === m.user.id)
         }))
     }
 

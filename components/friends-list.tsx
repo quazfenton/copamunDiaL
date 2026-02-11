@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Player } from "@/lib/types";
 
 interface FriendsListProps {
-  currentUserId: number;
+  currentUserId: string;
 }
 
 export default function FriendsList({ currentUserId }: FriendsListProps) {
@@ -32,9 +32,13 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
   const fetchFriends = async () => {
     setLoading(true);
     try {
-      const data = await apiClient.getFriends(); // Assuming this API call exists
+      const data: unknown = await apiClient.getFriends(); // Assuming this API call exists
       // Normalize the response to ensure it's an array of Player objects
-      const normalizedData = Array.isArray(data) ? data : (data.data || []);
+      const normalizedData: Player[] = Array.isArray(data) 
+        ? data as Player[] 
+        : Array.isArray((data as any)?.data) 
+          ? (data as any).data 
+          : [];
       setFriends(normalizedData);
     } catch (error: any) {
       console.error("Failed to fetch friends:", error);

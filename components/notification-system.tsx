@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { Notification } from "@/lib/types"
+import { Notification, NotificationType, InviteStatus } from "@/lib/types"
 
 interface NotificationSystemProps {
   notifications: Notification[]
-  onAccept: (notificationId: number) => void
-  onDecline: (notificationId: number) => void
-  onDismiss: (notificationId: number) => void
+  onAccept: (notificationId: string) => void
+  onDecline: (notificationId: string) => void
+  onDismiss: (notificationId: string) => void
 }
 
 export default function NotificationSystem({
@@ -25,7 +25,7 @@ export default function NotificationSystem({
   const [visibleNotifications, setVisibleNotifications] = useState<Notification[]>([])
 
   useEffect(() => {
-    const pending = notifications.filter(n => n.status === 'pending' && !n.isRead)
+    const pending = notifications.filter(n => n.status === 'PENDING' && !n.isRead)
     setVisibleNotifications(pending)
   }, [notifications])
 
@@ -104,7 +104,7 @@ export default function NotificationSystem({
                   </Button>
                 </div>
                 
-                {notification.status === 'pending' && (
+                {notification.status === 'PENDING' && (
                   <div className="flex space-x-2 mt-3">
                     <Button
                       size="sm"
@@ -152,33 +152,33 @@ export default function NotificationSystem({
 // Sample notifications for testing
 export const sampleNotifications: Notification[] = [
   {
-    id: 1,
-    type: 'team_invite',
+    id: '1',
+    type: NotificationType.TEAM_INVITE,
     title: 'Team Invitation',
     message: 'David invited you to join Rival FC',
     fromPlayer: {
-      id: 7,
+      id: '7',
       name: 'David Wilson',
       firstName: 'David',
       position: 'Defender',
       preferredPositions: ['Defender'],
       avatar: '/placeholder.svg',
-      teams: [2]
+      teams: ['2']
     },
-    toPlayer: 1,
-    teamId: 2,
+    toPlayer: '1',
+    teamId: '2',
     timestamp: new Date().toISOString(),
     isRead: false,
-    status: 'pending'
+    status: InviteStatus.PENDING
   },
   {
-    id: 2,
-    type: 'match_request',
+    id: '2',
+    type: NotificationType.MATCH_REQUEST,
     title: 'Match Request',
     message: 'Rival FC wants to schedule a match for June 25th',
-    toPlayer: 1,
+    toPlayer: '1',
     timestamp: new Date().toISOString(),
     isRead: false,
-    status: 'pending'
+    status: InviteStatus.PENDING
   }
 ]

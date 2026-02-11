@@ -1,4 +1,5 @@
 import { retryAsync, logger } from './error-handler'
+import React from 'react'
 
 class ApiClient {
   private baseUrl: string

@@ -14,7 +14,7 @@ type Friendship = {
 };
 
 interface FriendRequestsProps {
-  currentUserId: number;
+  currentUserId: string;
 }
 
 export default function FriendRequests({ currentUserId }: FriendRequestsProps) {

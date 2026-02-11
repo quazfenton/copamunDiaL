@@ -6,9 +6,33 @@ import { io, Socket } from 'socket.io-client';
 // Singleton socket instance
 let socketInstance: Socket | null = null;
 
+function getOrCreateSocket(url?: string) {
+  if (!socketInstance) {
+    socketInstance = io(url || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
+  }
+  return socketInstance;
+}
+
 export function useSocket(url?: string) {
+  const [isConnected, setIsConnected] = useState(socketInstance?.connected || false);
   const socket = getOrCreateSocket(url);
-  const isConnected = useSyncExternalStore(subscribe, getSnapshot, () => false);
+
+  useEffect(() => {
+    if (socket.connected) {
+      setIsConnected(true);
+    }
+
+    const handleConnect = () => setIsConnected(true);
+    const handleDisconnect = () => setIsConnected(false);
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+    };
+  }, [socket]);
 
   return { socket, isConnected };
 }

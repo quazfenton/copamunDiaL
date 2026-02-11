@@ -22,9 +22,15 @@ export default function PlayerCard({ player, draggable = false, onRemove, onClic
     }),
   }))
 
+  const cardRef = (element: HTMLDivElement | null) => {
+    if (draggable && element) {
+      drag(element);
+    }
+  };
+
   return (
     <Card
-      ref={draggable ? drag : null}
+      ref={draggable ? cardRef : null}
       className={`relative ${isDragging ? "opacity-50" : "opacity-100"} ${draggable ? "cursor-move" : ""} ${onClick ? "cursor-pointer" : ""} hover:bg-gray-800/50 transition-colors`}
       onClick={onClick}
     >

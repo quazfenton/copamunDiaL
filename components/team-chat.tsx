@@ -30,7 +30,7 @@ export default function TeamChat({ teamId }: TeamChatProps) {
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const socket = useSocket(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
+  const { socket } = useSocket(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
 
   useEffect(() => {
     if (!session?.user?.id || !teamId) return;

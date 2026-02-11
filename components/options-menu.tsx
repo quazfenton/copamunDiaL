@@ -4,7 +4,12 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Calendar, MapPin, Users, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-const OptionsMenu = ({ isOpen, onClose }) => {
+interface OptionsMenuProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const OptionsMenu = ({ isOpen, onClose }: OptionsMenuProps) => {
   return (
     <AnimatePresence>
       {isOpen && (

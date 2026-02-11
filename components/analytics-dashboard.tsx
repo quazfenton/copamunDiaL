@@ -74,7 +74,7 @@ export function AnalyticsDashboard({ players, teams, matches, currentUserId }: A
   // Calculate aggregate stats
   const aggregateStats = useMemo(() => {
     const totalMatches = matches.length
-    const completedMatches = matches.filter(m => m.status === 'completed').length
+    const completedMatches = matches.filter(m => m.status === 'COMPLETED').length
     const totalGoals = players.reduce((sum, p) => sum + (p.stats?.goals || 0), 0)
     const totalAssists = players.reduce((sum, p) => sum + (p.stats?.assists || 0), 0)
     const avgRating = players.length > 0

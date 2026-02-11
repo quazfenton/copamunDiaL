@@ -1,6 +1,12 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-export default function SportSelector({ sports, selectedSport, onSelectSport }) {
+interface SportSelectorProps {
+  sports: string[];
+  selectedSport: string;
+  onSelectSport: (sport: string) => void;
+}
+
+export default function SportSelector({ sports, selectedSport, onSelectSport }: SportSelectorProps) {
   return (
     <div className="mb-4">
       <label htmlFor="sport-select" className="block text-sm font-medium text-gray-300 mb-2">

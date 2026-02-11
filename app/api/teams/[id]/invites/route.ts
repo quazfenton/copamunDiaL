@@ -196,7 +196,6 @@ export async function PATCH(
 
     const { id: teamId } = await params;
     const { inviteId, status } = await request.json();
-    const { inviteId, status } = await request.json();
 
     if (!inviteId || !status) {
       return NextResponse.json({ error: 'Missing inviteId or status' }, { status: 400 });
