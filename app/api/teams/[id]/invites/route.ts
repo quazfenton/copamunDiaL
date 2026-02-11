@@ -194,7 +194,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const teamId = params.id; // This 'id' param is the teamId
+    const { id: teamId } = await params;
+    const { inviteId, status } = await request.json();
     const { inviteId, status } = await request.json();
 
     if (!inviteId || !status) {
@@ -246,7 +247,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const teamId = params.id; // This 'id' param is the teamId
+    const { id: teamId } = await params; // This 'id' param is the teamId
     const { inviteId } = await request.json(); // Get inviteId from request body
 
     if (!inviteId) {

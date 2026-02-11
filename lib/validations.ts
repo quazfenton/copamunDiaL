@@ -131,8 +131,20 @@ export const teamSearchSchema = z.object({
   location: z.string().optional(),
   minRating: z.coerce.number().min(0).max(5).optional(),
   maxRating: z.coerce.number().min(0).max(5).optional(),
-  isPublic: z.coerce.boolean().optional(),
-  hasOpenings: z.coerce.boolean().optional(),
+  isPublic: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      if (val.toLowerCase() === 'true') return true;
+      if (val.toLowerCase() === 'false') return false;
+    }
+    return val;
+  }, z.boolean().optional()),
+  hasOpenings: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      if (val.toLowerCase() === 'true') return true;
+      if (val.toLowerCase() === 'false') return false;
+    }
+    return val;
+  }, z.boolean().optional()),
   ...paginationSchema.shape,
 })
 
@@ -235,7 +247,7 @@ export const tournamentCreateSchema = z.object({
     matchDuration: z.number().int().min(1).max(300).optional(),
     breakBetweenMatches: z.number().int().min(0).max(120).optional(),
   }).optional(),
-}).refine(data => {
+export const tournamentCreateSchema = tournamentCreateBaseSchema.refine(data => {
   if (data.endDate && data.startDate > data.endDate) {
     return false
   }
@@ -253,7 +265,7 @@ export const tournamentCreateSchema = z.object({
   path: ['minTeams'],
 })
 
-export const tournamentUpdateSchema = tournamentCreateSchema.partial()
+export const tournamentUpdateSchema = tournamentCreateBaseSchema.partial()
 
 export const tournamentTeamRegisterSchema = z.object({
   teamId: idSchema,
@@ -325,12 +337,15 @@ export const notificationUpdateSchema = z.object({
 })
 
 export const notificationQuerySchema = z.object({
-  isRead: z.coerce.boolean().optional(),
+  isRead: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      return val.toLowerCase() === 'true' ? true : val.toLowerCase() === 'false' ? false : undefined
+    }
+    return val
+  }, z.boolean().optional()),
   type: z.enum(['MATCH_INVITE', 'TEAM_INVITE', 'MATCH_REMINDER', 'SCORE_UPDATE', 'SYSTEM', 'CHAT']).optional(),
   ...paginationSchema.shape,
 })
-
-// ============================================
 // Chat & Messaging Schemas
 // ============================================
 

@@ -412,7 +412,7 @@ function SportsManagementAppContent() {
           isOpen={isProfileOpen}
           onClose={() => setIsProfileOpen(false)}
           player={selectedPlayer}
-          currentUserId={currentUserId ? parseInt(currentUserId) : undefined}
+          currentUserId={currentUserId}
         />
 
         <MatchScheduling
