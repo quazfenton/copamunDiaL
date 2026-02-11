@@ -157,13 +157,31 @@ if (!VAPID_PUBLIC_KEY) {
 
     setState(prev => ({ ...prev, isLoading: true, error: null }))
 
-    try {
-      await state.subscription.unsubscribe()
-      
-      // Notify server about unsubscription
-      await removeSubscriptionFromServer(state.subscription)
+    const currentSubscription = state.subscription // Capture the subscription object
 
+    try {
+      // Perform browser-side unsubscription
+      await currentSubscription.unsubscribe()
+      
+      // Immediately clear the subscription from local state and set isLoading to false
+      // as the primary client-side action (browser unsubscription) is complete.
       setState(prev => ({ ...prev, subscription: null, isLoading: false }))
+      
+      // Notify server about unsubscription using the captured original subscription
+      await removeSubscriptionFromServer(currentSubscription)
+
+      // No further setState needed here as the state is already updated correctly
+      // if the server call succeeds.
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to unsubscribe'
+      // If an error occurred (either during browser unsubscribe or server removal),
+      // ensure isLoading is false and error is set.
+      // If browser unsubscribe succeeded, 'subscription' is already null from the setState above.
+      // If browser unsubscribe failed, 'subscription' remains as is (not nulled) in state.
+      setState(prev => ({ ...prev, isLoading: false, error: message }))
+      throw error
+    }
+  }, [state.subscription])
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to unsubscribe'
       setState(prev => ({ ...prev, isLoading: false, error: message }))

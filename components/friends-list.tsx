@@ -54,10 +54,17 @@ export default function FriendsList({ currentUserId }: FriendsListProps) {
     }
     setIsSearching(true);
     try {
-      const results: any[] = await apiClient.getPlayers({ search: searchTerm }) as any;
-      // Normalize the response to ensure it's an array of Player objects
-      const normalizedResults = Array.isArray(results) ? results : [];
-      setSearchResults((normalizedResults.data || results).filter((p: any) => p.id !== currentUserId && !friends.some((f: any) => f.id === p.id)));
+      const raw: unknown = await apiClient.getPlayers({ search: searchTerm });
+      const results: Player[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray((raw as any)?.data)
+          ? (raw as any).data
+          : [];
+      setSearchResults(
+        results.filter(
+          (p) => p.id !== currentUserId && !friends.some((f) => f.id === p.id)
+        )
+      );
     } catch (error: any) {
       console.error("Failed to search players:", error);
       toast({

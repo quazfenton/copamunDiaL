@@ -156,7 +156,9 @@ export function getPlayerRecommendations(
       }
       
       // Identify skill gaps player could fill
-      const teamAvgRating = team.players.reduce((sum, p) => sum + (p.stats?.rating || 0), 0) / team.players.length
+      const teamAvgRating = team.players.length > 0
+        ? team.players.reduce((sum, p) => sum + (p.stats?.rating || 0), 0) / team.players.length
+        : 0
       if ((player.stats?.rating || 0) > teamAvgRating) {
         skillGap.push('Above team average rating')
       }
@@ -342,7 +344,9 @@ export function getTeamInsights(team: TeamData, recentMatches: MatchData[] = [])
     })
   }
   
-  const avgRating = team.players.reduce((sum, p) => sum + (p.stats?.rating || 0), 0) / team.players.length
+  const avgRating = team.players.length > 0
+    ? team.players.reduce((sum, p) => sum + (p.stats?.rating || 0), 0) / team.players.length
+    : 0
   if (avgRating < 5 && team.players.length > 0) {
     insights.push({
       type: 'weakness',

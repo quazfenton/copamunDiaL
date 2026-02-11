@@ -666,7 +666,7 @@ export function TournamentBracket({
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {displayTournament.teams.map((team) => (
-              <div 
+              <div
                 key={team.id}
                 className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
               >
@@ -681,14 +681,15 @@ export function TournamentBracket({
                 </div>
               </div>
             ))}
-            
+
             {/* Empty slots */}
-            {Array.from({ length: displayTournament.maxTeams - displayTournament.teams.length }).map((_, i) => (
-              <div 
-                key={`empty-${i}`}
-                className="flex items-center justify-center gap-3 p-3 rounded-lg border-2 border-dashed border-muted-foreground/20 text-muted-foreground"
-              >
-                <Plus className="h-4 w-4" />
+            {displayTournament.maxTeams - displayTournament.teams.length > 0 &&
+              Array.from({ length: displayTournament.maxTeams - displayTournament.teams.length }).map((_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  className="flex items-center justify-center gap-3 p-3 rounded-lg border-2 border-dashed border-muted-foreground/20 text-muted-foreground"
+                >
+                  <Plus className="h-4 w-4" />
                 <span className="text-sm">Open Slot</span>
               </div>
             ))}

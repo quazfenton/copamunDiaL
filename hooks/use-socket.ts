@@ -7,31 +7,8 @@ import { io, Socket } from 'socket.io-client';
 let socketInstance: Socket | null = null;
 
 export function useSocket(url?: string) {
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-
-  useEffect(() => {
-    if (!socketInstance) {
-      socketInstance = io(url || window.location.origin, {
-        path: '/api/socket',
-        addTrailingSlash: false,
-      });
-
-      socketInstance.on('connect', () => {
-        setIsConnected(true);
-      });
-
-      socketInstance.on('disconnect', () => {
-        setIsConnected(false);
-      });
-    }
-
-    setSocket(socketInstance);
-
-    return () => {
-      // Don't disconnect singleton on unmount
-    };
-  }, [url]);
+  const socket = getOrCreateSocket(url);
+  const isConnected = useSyncExternalStore(subscribe, getSnapshot, () => false);
 
   return { socket, isConnected };
 }
@@ -57,10 +34,13 @@ export function useNotifications() {
   }, [socket]);
 
   const markAsRead = useCallback((id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, isRead: true } : n)
-    );
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    setNotifications(prev => {
+      const notification = prev.find(n => n.id === id);
+      if (notification && !notification.isRead) {
+        setUnreadCount(prevCount => Math.max(0, prevCount - 1));
+      }
+      return prev.map(n => n.id === id ? { ...n, isRead: true } : n);
+    });
   }, []);
 
   const clearAll = useCallback(() => {

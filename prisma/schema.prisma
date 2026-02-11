@@ -57,20 +57,17 @@ model User {
   sessions           Session[]
   accounts           Account[]
   createdLeagues     League[]     @relation(name: "LeagueCreator")
-  
+
   // Friend relationships
   friendshipsAsUser   Friendship[] @relation("UserFriends")
   friendshipsAsFriend Friendship[] @relation("FriendUsers")
-  
+
   // Tournament relationships
   organizedTournaments Tournament[] @relation("TournamentOrganizer")
 
-  @@index([email])
   @@index([location])
   @@map("users")
 }
-
-model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String
