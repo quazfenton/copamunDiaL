@@ -96,10 +96,12 @@ export interface MatchData {
   homeTeam: TeamData;
   awayTeam: TeamData;
   date: string;
+  time?: string;
   location: string;
   status: MatchStatus;
   homeScore?: number;
   awayScore?: number;
+  score?: { home: number; away: number };
   participants?: MatchParticipant[];
   events?: MatchEvent[];
   createdAt?: string;
@@ -141,6 +143,7 @@ export interface PickupGameData {
   id: string;
   location: string;
   date: string;
+  time?: string;
   sport: string;
   playersNeeded: number;
   playersJoined: number;

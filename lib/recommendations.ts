@@ -229,19 +229,20 @@ export function getFormationRecommendations(team: TeamData): FormationRecommenda
     const reasons: string[] = []
     
     // Assign best player for each position
-    positions.forEach(position => {
-      let bestPlayer: Player | null = null
+    for (const position of positions) {
+      // Find the best player for this position
+      let bestPlayer: Player | undefined = undefined
       let bestFit = 0
       
-      team.players.forEach(player => {
-        if (usedPlayers.has(player.id)) return
+      for (const player of team.players) {
+        if (usedPlayers.has(player.id)) continue
         
         const fit = calculatePositionFit(player, position)
         if (fit > bestFit) {
           bestFit = fit
           bestPlayer = player
         }
-      })
+      }
       
       if (bestPlayer) {
         usedPlayers.add(bestPlayer.id)
@@ -252,7 +253,7 @@ export function getFormationRecommendations(team: TeamData): FormationRecommenda
         })
         totalScore += bestFit
       }
-    })
+    }
     
     // Calculate average fit score
     const avgScore = assignments.length > 0 ? totalScore / assignments.length : 0

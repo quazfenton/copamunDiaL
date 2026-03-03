@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run tests/utils.test.ts tests/validations.test.ts tests/recommendations.test.ts",
+    "test:performance": "vitest run tests/performance.test.ts",
+    "test:contracts": "vitest run tests/contracts/",
+    "test:e2e": "echo E2E tests require Playwright setup",
+    "typecheck": "tsc --noEmit",
     "dev": "node server/server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server/server.js",
@@ -75,14 +84,22 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/next-auth": "^3.15.0",
     "@types/node": "^22",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^5.1.4",
+    "@vitest/ui": "^4.0.18",
+    "jsdom": "^28.1.0",
     "postcss": "^8.5",
     "prisma": "6.13.0",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

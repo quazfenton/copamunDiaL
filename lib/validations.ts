@@ -223,7 +223,7 @@ export const matchRequestResponseSchema = z.object({
 // Tournament Schemas
 // ============================================
 
-export const tournamentCreateSchema = z.object({
+export const tournamentCreateBaseSchema = z.object({
   name: z.string().min(2, 'Tournament name must be at least 2 characters').max(200),
   sport: z.string().min(1, 'Sport is required'),
   description: z.string().max(2000).optional(),
@@ -247,8 +247,10 @@ export const tournamentCreateSchema = z.object({
     matchDuration: z.number().int().min(1).max(300).optional(),
     breakBetweenMatches: z.number().int().min(0).max(120).optional(),
   }).optional(),
+})
+
 export const tournamentCreateSchema = tournamentCreateBaseSchema.refine(data => {
-  if (data.endDate && data.startDate > data.endDate) {
+  if (data.endDate && new Date(data.endDate) < new Date(data.startDate)) {
     return false
   }
   return true
