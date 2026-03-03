@@ -19,7 +19,12 @@ const mockPlayers: Player[] = [
     id: '1',
     name: 'John Doe',
     firstName: 'John',
-    position: 'Forward',
+    position: 'ST',
+    preferredPositions: ['ST', 'CAM'],
+    teams: ['1'],
+    stats: { matches: 42, goals: 28, assists: 15, rating: 5 }
+  },
+  {
     preferredPositions: ['Forward', 'Midfielder'],
     teams: ['1'],
     stats: { matches: 42, goals: 28, assists: 15, rating: 4.5 }
@@ -100,7 +105,7 @@ describe('getPlayerRecommendations', () => {
 
   it('should filter out players already in team', () => {
     const recommendations = getPlayerRecommendations(mockPlayers, mockTeam, 10)
-    const inTeam = recommendations.filter(r => 
+    const inTeam = recommendations.filter(r =>
       mockTeam.players.some(p => p.id === r.player.id)
     )
     expect(inTeam.length).toBe(0)
@@ -108,8 +113,15 @@ describe('getPlayerRecommendations', () => {
 
   it('should prioritize high-rated players', () => {
     const recommendations = getPlayerRecommendations(mockPlayers, mockTeamWithNoPlayers, 5)
-    if (recommendations.length > 0) {
-      expect(recommendations[0].matchScore).toBeGreaterThanOrEqual(0)
+    if (recommendations.length > 1) {
+      expect(recommendations[0].player.stats.rating).toBeGreaterThanOrEqual(
+        recommendations[1].player.stats.rating
+      )
+    }
+  })
+
+  it('should return empty for empty available players', () => {
+    const recommendations = getPlayerRecommendations([], mockTeam, 5)
     }
   })
 

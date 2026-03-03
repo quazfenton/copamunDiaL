@@ -36,7 +36,6 @@ export class EventEmitter {
     }
   }
 }
-
 export const eventEmitter = new EventEmitter();
 
 // SSE Helper type for API routes
@@ -56,7 +55,14 @@ export function createSSEHandler() {
     addConnection(controller: ReadableStreamDefaultController) {
       const connection = {
         controller,
-        close: () => connections.delete(connection),
+        close: () => {
+          controller.close();
+          connections.delete(connection);
+        },
+      };
+      connections.add(connection);
+      return connection;
+    },
       };
       connections.add(connection);
       return connection;

@@ -185,6 +185,10 @@ if (!VAPID_PUBLIC_KEY) {
 
   // Show local notification
   const showNotification = useCallback(async (payload: NotificationPayload): Promise<void> => {
+    if (!('serviceWorker' in navigator)) {
+      throw new Error('Service workers not supported')
+    }
+
     if (Notification.permission !== 'granted') {
       throw new Error('Notification permission not granted')
     }
@@ -269,7 +273,9 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
 // Send skip waiting message to service worker
 export function skipWaiting(): void {
-  navigator.serviceWorker.controller?.postMessage({ type: 'SKIP_WAITING' })
+  if (!('serviceWorker' in navigator)) {
+    return
+  }
 }
 
 // Helper functions

@@ -9,7 +9,7 @@ const createTournamentSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
   sport: z.string().min(1),
-  bracketType: z.enum(['SINGLE_ELIMINATION', 'DOUBLE_ELIMINATION', 'ROUND_ROBIN', 'SWISS']),
+  bracketType: z.enum(['SINGLE_ELIMINATION', 'DOUBLE_ELIMINATION', 'ROUND_ROBIN', 'SWISS', 'GROUP_STAGE']),
   maxTeams: z.number().min(4).max(64),
   startDate: z.string().datetime(),
   endDate: z.string().datetime().optional(),
@@ -36,10 +36,19 @@ export async function GET(request: NextRequest) {
 
     const limit = Math.min(Math.max(parseInt(rawLimit) || 20, 1), 100)
     const offset = Math.max(parseInt(rawOffset) || 0, 0)
-    
+
     const where: any = {}
-    
-    if (status) {
+
+    const allowedStatuses = new Set([
+      'DRAFT',
+      'REGISTRATION_OPEN',
+      'REGISTRATION_CLOSED',
+      'IN_PROGRESS',
+      'COMPLETED',
+      'CANCELLED',
+    ])
+
+    if (status && allowedStatuses.has(status)) {
       where.status = status
     }
 

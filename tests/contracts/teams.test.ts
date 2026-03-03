@@ -34,8 +34,15 @@ interface TeamResponse {
 describe('Team API Contract Tests', () => {
   describe('GET /api/teams', () => {
     it('should return array of teams', async () => {
-      vi.mocked(prisma.team.findMany).mockResolvedValue([])
-      const mockResponse: TeamResponse[] = []
+      const response = await fetch('/api/teams')
+      const teams: TeamResponse[] = await response.json()
+      expect(Array.isArray(teams)).toBe(true)
+    })
+
+    it('should include required fields in team objects', async () => {
+      const response = await fetch('/api/teams')
+      const teams: TeamResponse[] = await response.json()
+      const mockTeam = teams[0]
       expect(mockResponse).toBeInstanceOf(Array)
     })
 

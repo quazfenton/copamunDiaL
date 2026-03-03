@@ -99,9 +99,12 @@ export interface MatchData {
   time?: string;
   location: string;
   status: MatchStatus;
-  homeScore?: number;
-  awayScore?: number;
   score?: { home: number; away: number };
+  participants?: MatchParticipant[];
+  events?: MatchEvent[];
+  createdAt?: string;
+  updatedAt?: string;
+}
   participants?: MatchParticipant[];
   events?: MatchEvent[];
   createdAt?: string;

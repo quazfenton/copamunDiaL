@@ -35,7 +35,7 @@ describe('Button Component', () => {
   it('applies variant styles', () => {
     render(<Button variant="destructive">Delete</Button>)
     const button = screen.getByRole('button', { name: /delete/i })
-    expect(button).toBeInTheDocument()
+    expect(button).toHaveClass('bg-destructive', 'text-destructive-foreground')
   })
 
   it('applies size styles', () => {

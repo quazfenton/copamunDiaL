@@ -149,7 +149,6 @@ The project uses a **custom Express server** (`server/server.js`) with Next.js, 
 **Effort:** Medium (3-4 hours)
 
 ---
-
 #### Issue 7: Incomplete Authentication
 **Problem:**
 - Only Google OAuth and email/password implemented
@@ -167,9 +166,16 @@ The project uses a **custom Express server** (`server/server.js`) with Next.js, 
 
 ### 🟢 MEDIUM: Feature Gaps
 
-#### Issue 8: No Testing Infrastructure
+#### Issue 8: Basic Testing Infrastructure Exists but Needs Expansion
 **Problem:**
-- No test files in the repository
+- Basic test infrastructure exists (Jest, React Testing Library)
+- Test coverage is limited to core utilities
+- Missing integration and end-to-end tests
+
+**Recommendation:**
+- Expand test coverage to components and API routes
+- Add integration tests for critical user flows
+- Implement end-to-end testing with Playwright or Cypress
 - No test scripts in package.json
 
 **Recommendation:**
@@ -197,9 +203,19 @@ The project uses a **custom Express server** (`server/server.js`) with Next.js, 
 
 ---
 
-#### Issue 10: Missing PWA Configuration
+#### Issue 10: Incomplete PWA Configuration
 **Problem:**
-- PWA mentioned in README but no pwa.config or service worker files found
+- PWA mentioned in README but configuration is incomplete
+- Service worker (`public/sw.js`) exists but lacks proper integration
+- Offline support incomplete
+
+**Recommendation:**
+- Add proper PWA configuration with next-pwa or workbox
+- Register and optimize the existing service worker
+- Implement offline-first data caching
+- Add web app manifest with proper icons and theme settings
+
+**Effort:** Medium (3-4 hours)
 - Offline support incomplete
 
 **Recommendation:**

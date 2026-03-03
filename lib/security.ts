@@ -235,7 +235,14 @@ export function validateOrigin(request: NextRequest, allowedOrigins: string[]): 
  * Generate CSRF token
  */
 export function generateCSRFToken(): string {
+  const cryptoObj = (globalThis as any).crypto as { getRandomValues(data: Uint8Array): Uint8Array } | undefined
+
+  if (!cryptoObj || typeof cryptoObj.getRandomValues !== 'function') {
+    throw new Error('Secure random number generator is not available in this environment')
+  }
+
   const array = new Uint8Array(32)
+  cryptoObj.getRandomValues(array)
   crypto.getRandomValues(array)
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
 }

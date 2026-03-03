@@ -396,8 +396,12 @@ async function startServer() {
         try {
           // Clean up user presence
           const userData = await redisClient.hGetAll(`user:${socket.id}`);
-          if (Object.keys(userData).length > 0) {
-            const { userId, userName } = userData;
+          const hasUserData = Object.keys(userData).length > 0;
+          let userId;
+          let userName;
+
+          if (hasUserData) {
+            ({ userId, userName } = userData);
 
             // Broadcast offline status
             socket.broadcast.emit('user-status-change', {
@@ -410,6 +414,34 @@ async function startServer() {
             await removeUserPresence(socket.id);
             console.log(`👤 User offline: ${userName} (${userId})`);
           }
+
+          // Clean up room memberships - we need to check all possible rooms this user was in
+          // Since we don't know which rooms the user was in, we'll need to iterate through all rooms
+          // and remove the user from each one where they exist
+          let cursor = '0';
+          do {
+            const result = await redisClient.scan(cursor, { MATCH: 'room:*', COUNT: 100 });
+            cursor = result.cursor;
+            for (const roomKey of result.keys) {
+              const teamId = roomKey.replace('room:', '');
+              await removeUserFromRoom(socket.id, teamId);
+
+              // Notify remaining members that user left (only if we know the user identity)
+              if (hasUserData) {
+                const roomName = `team-${teamId}`;
+                socket.to(roomName).emit('member-left', {
+                  userId,
+                  userName,
+                  teamId,
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            }
+          } while (cursor !== '0');
+        } catch (error) {
+          console.error(`❌ Error during disconnect handling for socket ${socket.id}:`, error);
+        }
+      });
 
           // Clean up room memberships - we need to check all possible rooms this user was in
           // Since we don't know which rooms the user was in, we'll need to iterate through all rooms
@@ -438,13 +470,19 @@ async function startServer() {
       });
     });
 
-    // Health check endpoint
     const http = require('http');
     const server = http.createServer(async (req, res) => {
       if (req.url === '/health') {
         try {
-          // Get room count using non-blocking counter
-          const roomCount = await redisClient.get('room:count') || 0;
+          // Derive room count from Redis room:* keys to reflect actual memberships
+          let cursor = '0';
+          let roomCount = 0;
+
+          do {
+            const result = await redisClient.scan(cursor, { MATCH: 'room:*', COUNT: 100 });
+            cursor = result.cursor;
+            roomCount += result.keys.length;
+          } while (cursor !== '0');
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
@@ -459,6 +497,15 @@ async function startServer() {
           res.writeHead(503, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             status: 'unhealthy',
+            error: 'Redis connection failed',
+            timestamp: new Date().toISOString(),
+          }));
+        }
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
             error: 'Redis connection failed',
             timestamp: new Date().toISOString(),
           }));

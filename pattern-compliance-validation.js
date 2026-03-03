@@ -85,9 +85,9 @@ class PatternValidator {
     }
 
     // Check 3: Await pattern for parameter access
-    const awaitPattern = /const\s*\{\s*id\s*\}\s*=\s*await\s+params/g;
+    const awaitPattern = /const\s*\{\s*\w+(?:\s*:\s*\w+)?\s*\}\s*=\s*await\s+params/g;
     const awaitMatches = content.match(awaitPattern);
-    
+
     if (!awaitMatches) {
       this.results.failed.push({
         file: filePath,
@@ -98,6 +98,7 @@ class PatternValidator {
       fileValid = false;
     } else {
       console.log(`  ✅ Await pattern found (${awaitMatches.length} occurrences)`);
+    }
     }
 
     // Check 4: HTTP method handlers present
