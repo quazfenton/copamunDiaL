@@ -3,19 +3,87 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { handleError } from '@/lib/error-handler' // Import handleError
+import { handleError } from '@/lib/error-handler'
 
+// Schemas with proper validation
 const createPlayerSchema = z.object({
-  name: z.string().min(1),
-  firstName: z.string().min(1),
-  position: z.string().min(1),
-  preferredPositions: z.array(z.string()),
-  bio: z.string().optional(),
-  phone: z.string().optional(),
-  location: z.string().optional(),
+  name: z.string().min(1).max(100),
+  firstName: z.string().min(1).max(50),
+  position: z.string().min(1).max(50),
+  preferredPositions: z.array(z.string()).max(5),
+  bio: z.string().max(500).optional(),
+  phone: z.string().max(20).optional(),
+  location: z.string().max(100).optional(),
 })
 
 const updatePlayerSchema = createPlayerSchema.partial()
+
+// Public player fields (safe to expose to all authenticated users)
+const publicPlayerFields = {
+  id: true,
+  name: true,
+  firstName: true,
+  position: true,
+  preferredPositions: true,
+  image: true,
+  bio: true,
+  rating: true,
+  matches: true,
+  goals: true,
+  assists: true,
+  wins: true,
+  losses: true,
+  draws: true,
+  teams: {
+    select: {
+      team: {
+        select: {
+          id: true,
+          name: true,
+          logo: true
+        }
+      }
+    }
+  },
+  achievements: {
+    select: {
+      id: true,
+      type: true,
+      title: true,
+      description: true,
+      earnedAt: true
+    }
+  },
+  captainOf: {
+    select: {
+      id: true
+    }
+  }
+}
+
+// Private player fields (only visible to self or friends)
+const privatePlayerFields = {
+  ...publicPlayerFields,
+  email: true,
+  phone: true,
+  location: true,
+}
+
+/**
+ * Check if two users are friends
+ */
+async function areFriends(userId1: string, userId2: string): Promise<boolean> {
+  const friendship = await prisma.friendship.findFirst({
+    where: {
+      OR: [
+        { userId: userId1, friendId: userId2 },
+        { userId: userId2, friendId: userId1 },
+      ],
+      status: 'ACCEPTED',
+    },
+  })
+  return !!friendship
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,6 +96,14 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const position = searchParams.get('position')
     const location = searchParams.get('location')
+    const includePrivate = searchParams.get('includePrivate') === 'true'
+
+    // Validate search input length
+    if (search && search.length > 100) {
+      return NextResponse.json({ 
+        error: 'Search query too long. Maximum 100 characters.' 
+      }, { status: 400 })
+    }
 
     const where: any = {
       isActive: true
@@ -41,8 +117,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (position) {
-      // If position is provided, add it to the WHERE clause
-      // This will implicitly AND with other conditions
       where.AND = where.AND || [];
       where.AND.push({
         OR: [
@@ -57,58 +131,19 @@ export async function GET(request: NextRequest) {
       where.AND.push({ location: { contains: location, mode: 'insensitive' } });
     }
 
+    // Determine which fields to return based on privacy settings
+    const selectFields = includePrivate ? privatePlayerFields : publicPlayerFields
+
     const players = await prisma.user.findMany({
       where,
-      select: {
-        id: true,
-        name: true,
-        firstName: true,
-        position: true,
-        preferredPositions: true,
-        image: true,
-        bio: true,
-        email: true,
-        phone: true,
-        location: true,
-        rating: true,
-        matches: true,
-        goals: true,
-        assists: true,
-        wins: true,
-        losses: true,
-        draws: true,
-        teams: {
-          select: {
-            team: {
-              select: {
-                id: true,
-                name: true,
-                logo: true
-              }
-            }
-          }
-        },
-        achievements: {
-          select: {
-            id: true,
-            type: true,
-            title: true,
-            description: true,
-            earnedAt: true
-          }
-        },
-        captainOf: {
-          select: {
-            id: true
-          }
-        }
-      },
+      select: selectFields,
       orderBy: {
         rating: 'desc'
       }
     })
 
-    const formattedPlayers = players.map((player: any) => ({
+    // If includePrivate is requested, filter to only show friends
+    let formattedPlayers = players.map((player: any) => ({
       ...player,
       stats: {
         matches: player.matches,

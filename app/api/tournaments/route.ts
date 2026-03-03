@@ -1,69 +1,68 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/db"
-import { z } from "zod"
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { z } from 'zod'
+import { handleError } from '@/lib/error-handler'
+import { createTournamentBracket, getTournamentBracket, BracketType } from '@/lib/tournament-bracket'
 
-// Validation schemas
 const createTournamentSchema = z.object({
   name: z.string().min(1).max(100),
-  description: z.string().optional(),
-  sport: z.string().min(1),
-  bracketType: z.enum(['SINGLE_ELIMINATION', 'DOUBLE_ELIMINATION', 'ROUND_ROBIN', 'SWISS']),
-  maxTeams: z.number().min(4).max(64),
+  description: z.string().max(500).optional(),
+  sport: z.string().max(50),
+  bracketType: z.enum(['SINGLE_ELIMINATION', 'DOUBLE_ELIMINATION', 'ROUND_ROBIN']).default('SINGLE_ELIMINATION'),
+  maxTeams: z.number().min(2).max(64),
   startDate: z.string().datetime(),
   endDate: z.string().datetime().optional(),
   registrationEnd: z.string().datetime().optional(),
-  prizeInfo: z.string().optional(),
-  rules: z.string().optional(),
-  location: z.string().optional(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
+  prizeInfo: z.string().max(200).optional(),
+  rules: z.string().max(2000).optional(),
+  location: z.string().max(200).optional(),
   entryFee: z.number().min(0).optional(),
 })
 
-// GET /api/tournaments - Get all tournaments with optional filters
+const updateTournamentSchema = createTournamentSchema.partial()
+
+/**
+ * GET /api/tournaments
+ * Get all tournaments with filtering
+ */
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    const { searchParams } = new URL(request.url)
-
-    const status = searchParams.get('status')
-    const sport = searchParams.get('sport')
-    const myTournaments = searchParams.get('my') === 'true'
-    const rawLimit = searchParams.get('limit') || '20'
-    const rawOffset = searchParams.get('offset') || '0'
-
-    const limit = Math.min(Math.max(parseInt(rawLimit) || 20, 1), 100)
-    const offset = Math.max(parseInt(rawOffset) || 0, 0)
-    
-    const where: any = {}
-    
-    if (status) {
-      where.status = status
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { searchParams } = new URL(request.url)
+    const sport = searchParams.get('sport')
+    const status = searchParams.get('status')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+
+    const where: any = {}
 
     if (sport) {
       where.sport = sport
     }
-    
-    if (myTournaments && session?.user?.id) {
-      where.OR = [
-        { organizerId: session.user.id },
-        { participants: { some: { team: { members: { some: { userId: session.user.id } } } } } }
-      ]
+
+    if (status) {
+      where.status = status
     }
+
+    const skip = (page - 1) * limit
 
     const [tournaments, total] = await Promise.all([
       prisma.tournament.findMany({
         where,
+        skip,
+        take: limit,
         include: {
           organizer: {
             select: {
               id: true,
               name: true,
-              image: true,
-            }
+            },
           },
           participants: {
             include: {
@@ -72,45 +71,47 @@ export async function GET(request: NextRequest) {
                   id: true,
                   name: true,
                   logo: true,
-                  rating: true,
-                }
-              }
-            }
+                },
+              },
+            },
           },
           _count: {
             select: {
-              matches: true,
               participants: true,
-            }
-          }
+            },
+          },
         },
-        orderBy: { startDate: 'desc' },
-        take: limit,
-        skip: offset,
+        orderBy: {
+          createdAt: 'desc',
+        },
       }),
-      prisma.tournament.count({ where })
+      prisma.tournament.count({ where }),
     ])
 
     return NextResponse.json({
-      tournaments,
+      data: tournaments.map((t) => ({
+        ...t,
+        registeredTeams: t._count.participants,
+      })),
       pagination: {
-        total,
+        page,
         limit,
-        offset,
-        hasMore: offset + tournaments.length < total
-      }
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     })
   } catch (error) {
-    console.error('Error fetching tournaments:', error)
-    return NextResponse.json({ error: 'Failed to fetch tournaments' }, { status: 500 })
+    return handleError(error)
   }
 }
 
-// POST /api/tournaments - Create a new tournament
+/**
+ * POST /api/tournaments
+ * Create a new tournament
+ */
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -118,22 +119,29 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createTournamentSchema.parse(body)
 
+    // Validate dates
+    const startDate = new Date(validatedData.startDate)
+    if (startDate < new Date()) {
+      return NextResponse.json(
+        { error: 'Start date cannot be in the past' },
+        { status: 400 }
+      )
+    }
+
+    if (validatedData.endDate) {
+      const endDate = new Date(validatedData.endDate)
+      if (endDate < startDate) {
+        return NextResponse.json(
+          { error: 'End date must be after start date' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Create tournament
     const tournament = await prisma.tournament.create({
       data: {
-        name: validatedData.name,
-        description: validatedData.description,
-        sport: validatedData.sport,
-        bracketType: validatedData.bracketType,
-        maxTeams: validatedData.maxTeams,
-        location: validatedData.location,
-        latitude: validatedData.latitude,
-        longitude: validatedData.longitude,
-        prizeInfo: validatedData.prizeInfo,
-        rules: validatedData.rules,
-        entryFee: validatedData.entryFee,
-        startDate: new Date(validatedData.startDate),
-        endDate: validatedData.endDate ? new Date(validatedData.endDate) : undefined,
-        registrationEnd: validatedData.registrationEnd ? new Date(validatedData.registrationEnd) : undefined,
+        ...validatedData,
         organizerId: session.user.id,
         status: 'DRAFT',
       },
@@ -142,18 +150,16 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            image: true,
-          }
-        }
-      }
+          },
+        },
+      },
     })
 
-    return NextResponse.json(tournament, { status: 201 })
+    return NextResponse.json({
+      ...tournament,
+      message: 'Tournament created successfully',
+    }, { status: 201 })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation error', details: error.errors }, { status: 400 })
-    }
-    console.error('Error creating tournament:', error)
-    return NextResponse.json({ error: 'Failed to create tournament' }, { status: 500 })
+    return handleError(error)
   }
 }
