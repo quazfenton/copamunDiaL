@@ -3,7 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { handleError } from '@/lib/error-handler'
+import { successResponse, errorResponse, handleZodError, handleDatabaseError } from '@/lib/api-response'
+import { createAuditLog } from '@/lib/audit-log'
+import { InputSanitizer } from '@/lib/sanitizer'
+import { rateLimitMiddleware, RateLimitPresets } from '@/lib/rate-limit'
 
 // Schemas with proper validation
 const createPlayerSchema = z.object({
@@ -87,23 +90,22 @@ async function areFriends(userId1: string, userId2: string): Promise<boolean> {
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const { searchParams } = new URL(request.url)
-    const search = searchParams.get('search')
-    const position = searchParams.get('position')
-    const location = searchParams.get('location')
+    const search = searchParams.get('search') ? InputSanitizer.sanitizeSearchQuery(searchParams.get('search')!) : null
+    const position = searchParams.get('position') ? InputSanitizer.sanitizeText(searchParams.get('position')!) : null
+    const location = searchParams.get('location') ? InputSanitizer.sanitizeText(searchParams.get('location')!) : null
     const includePrivate = searchParams.get('includePrivate') === 'true'
-
-    // Validate search input length
-    if (search && search.length > 100) {
-      return NextResponse.json({ 
-        error: 'Search query too long. Maximum 100 characters.' 
-      }, { status: 400 })
-    }
 
     const where: any = {
       isActive: true
@@ -142,8 +144,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // If includePrivate is requested, filter to only show friends
-    let formattedPlayers = players.map((player: any) => ({
+    const formattedPlayers = players.map((player: any) => ({
       ...player,
       stats: {
         matches: player.matches,
@@ -155,17 +156,27 @@ export async function GET(request: NextRequest) {
       isCaptain: player.captainOf.length > 0
     }))
 
-    return NextResponse.json(formattedPlayers)
+    return successResponse(formattedPlayers)
   } catch (error) {
-    return handleError(error)
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('GET /api/players error:', error)
+    return handleDatabaseError(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const body = await request.json()
@@ -180,10 +191,21 @@ export async function POST(request: NextRequest) {
     const currentRoles = existingUser?.roles || [];
     const newRoles = currentRoles.includes('PLAYER') ? currentRoles : [...currentRoles, 'PLAYER'];
 
+    // Sanitize input data
+    const sanitizedData = {
+      name: InputSanitizer.sanitizeText(validatedData.name),
+      firstName: InputSanitizer.sanitizeText(validatedData.firstName),
+      position: InputSanitizer.sanitizeText(validatedData.position),
+      preferredPositions: validatedData.preferredPositions.map(p => InputSanitizer.sanitizeText(p)),
+      bio: validatedData.bio ? InputSanitizer.sanitizeRichText(validatedData.bio, { maxLength: 500 }) : undefined,
+      phone: validatedData.phone ? InputSanitizer.sanitizePhone(validatedData.phone) : undefined,
+      location: validatedData.location ? InputSanitizer.sanitizeText(validatedData.location) : undefined,
+    };
+
     const player = await prisma.user.update({
       where: { id: session.user.id },
       data: {
-        ...validatedData,
+        ...sanitizedData,
         roles: newRoles as any,
       },
       select: {
@@ -223,7 +245,17 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
+    // Create audit log
+    await createAuditLog('PLAYER_PROFILE_UPDATED', {
+      userId: session.user.id,
+      userEmail: session.user.email || undefined,
+      metadata: {
+        playerName: player.name,
+        position: player.position,
+      },
+    });
+
+    return successResponse({
       ...player,
       stats: {
         matches: player.matches,
@@ -235,23 +267,43 @@ export async function POST(request: NextRequest) {
       isCaptain: player.captainOf.length > 0
     })
   } catch (error) {
-    return handleError(error)
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('POST /api/players error:', error)
+    return handleDatabaseError(error)
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const body = await request.json()
     const validatedData = updatePlayerSchema.parse(body)
 
+    // Sanitize input data
+    const sanitizedData: any = {};
+    if (validatedData.name) sanitizedData.name = InputSanitizer.sanitizeText(validatedData.name);
+    if (validatedData.firstName) sanitizedData.firstName = InputSanitizer.sanitizeText(validatedData.firstName);
+    if (validatedData.position) sanitizedData.position = InputSanitizer.sanitizeText(validatedData.position);
+    if (validatedData.preferredPositions) sanitizedData.preferredPositions = validatedData.preferredPositions.map(p => InputSanitizer.sanitizeText(p));
+    if (validatedData.bio) sanitizedData.bio = InputSanitizer.sanitizeRichText(validatedData.bio, { maxLength: 500 });
+    if (validatedData.phone) sanitizedData.phone = InputSanitizer.sanitizePhone(validatedData.phone);
+    if (validatedData.location) sanitizedData.location = InputSanitizer.sanitizeText(validatedData.location);
+
     const player = await prisma.user.update({
       where: { id: session.user.id },
-      data: validatedData,
+      data: sanitizedData,
       select: {
         id: true,
         name: true,
@@ -289,7 +341,7 @@ export async function PUT(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
+    return successResponse({
       ...player,
       stats: {
         matches: player.matches,
@@ -301,6 +353,10 @@ export async function PUT(request: NextRequest) {
       isCaptain: player.captainOf.length > 0
     })
   } catch (error) {
-    return handleError(error)
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('PUT /api/players error:', error)
+    return handleDatabaseError(error)
   }
 }

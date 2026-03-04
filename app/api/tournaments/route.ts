@@ -3,14 +3,17 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { handleError } from '@/lib/error-handler'
+import { successResponse, errorResponse, handleZodError, handleDatabaseError } from '@/lib/api-response'
+import { createAuditLog } from '@/lib/audit-log'
+import { rateLimitMiddleware, RateLimitPresets } from '@/lib/rate-limit'
+import { InputSanitizer } from '@/lib/sanitizer'
 import { createTournamentBracket, getTournamentBracket, BracketType } from '@/lib/tournament-bracket'
 
 const createTournamentSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
   sport: z.string().max(50),
-  bracketType: z.enum(['SINGLE_ELIMINATION', 'DOUBLE_ELIMINATION', 'ROUND_ROBIN']).default('SINGLE_ELIMINATION'),
+  bracketType: z.enum(['SINGLE_ELIMINATION', 'DOUBLE_ELIMINATION', 'ROUND_ROBIN', 'SWISS']).default('SINGLE_ELIMINATION'),
   maxTeams: z.number().min(2).max(64),
   startDate: z.string().datetime(),
   endDate: z.string().datetime().optional(),
@@ -29,16 +32,27 @@ const updateTournamentSchema = createTournamentSchema.partial()
  */
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const { searchParams } = new URL(request.url)
-    const sport = searchParams.get('sport')
-    const status = searchParams.get('status')
+    const sport = searchParams.get('sport') ? InputSanitizer.sanitizeText(searchParams.get('sport')!) : null
+    const status = searchParams.get('status') ? InputSanitizer.sanitizeText(searchParams.get('status')!) : null
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
+
+    // Validate pagination
+    if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1 || limit > 100) {
+      return errorResponse('INVALID_PARAMS', 'Invalid pagination (page >= 1, limit: 1-100)', 400)
+    }
 
     const where: any = {}
 
@@ -88,8 +102,8 @@ export async function GET(request: NextRequest) {
       prisma.tournament.count({ where }),
     ])
 
-    return NextResponse.json({
-      data: tournaments.map((t) => ({
+    return successResponse({
+      tournaments: tournaments.map((t) => ({
         ...t,
         registeredTeams: t._count.participants,
       })),
@@ -101,7 +115,11 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    return handleError(error)
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('GET /api/tournaments error:', error)
+    return handleDatabaseError(error)
   }
 }
 
@@ -111,9 +129,15 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const body = await request.json()
@@ -122,26 +146,37 @@ export async function POST(request: NextRequest) {
     // Validate dates
     const startDate = new Date(validatedData.startDate)
     if (startDate < new Date()) {
-      return NextResponse.json(
-        { error: 'Start date cannot be in the past' },
-        { status: 400 }
-      )
+      return errorResponse('INVALID_DATE', 'Start date cannot be in the past', 400)
     }
 
     if (validatedData.endDate) {
       const endDate = new Date(validatedData.endDate)
       if (endDate < startDate) {
-        return NextResponse.json(
-          { error: 'End date must be after start date' },
-          { status: 400 }
-        )
+        return errorResponse('INVALID_DATE', 'End date must be after start date', 400)
       }
+    }
+
+    if (validatedData.registrationEnd) {
+      const registrationEnd = new Date(validatedData.registrationEnd)
+      if (registrationEnd > startDate) {
+        return errorResponse('INVALID_DATE', 'Registration must end before tournament starts', 400)
+      }
+    }
+
+    // Sanitize text fields
+    const sanitizedData = {
+      ...validatedData,
+      name: InputSanitizer.sanitizeText(validatedData.name),
+      description: validatedData.description ? InputSanitizer.sanitizeRichText(validatedData.description, { maxLength: 500 }) : undefined,
+      location: validatedData.location ? InputSanitizer.sanitizeText(validatedData.location) : undefined,
+      prizeInfo: validatedData.prizeInfo ? InputSanitizer.sanitizeText(validatedData.prizeInfo) : undefined,
+      rules: validatedData.rules ? InputSanitizer.sanitizeRichText(validatedData.rules, { maxLength: 2000 }) : undefined,
     }
 
     // Create tournament
     const tournament = await prisma.tournament.create({
       data: {
-        ...validatedData,
+        ...sanitizedData,
         organizerId: session.user.id,
         status: 'DRAFT',
       },
@@ -155,11 +190,27 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({
+    // Create audit log
+    await createAuditLog('TOURNAMENT_CREATED', {
+      userId: session.user.id,
+      userEmail: session.user.email || undefined,
+      resourceId: tournament.id,
+      metadata: {
+        tournamentName: tournament.name,
+        sport: tournament.sport,
+        maxTeams: tournament.maxTeams,
+      },
+    });
+
+    return successResponse({
       ...tournament,
       message: 'Tournament created successfully',
     }, { status: 201 })
   } catch (error) {
-    return handleError(error)
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('POST /api/tournaments error:', error)
+    return handleDatabaseError(error)
   }
 }

@@ -2,23 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { handleError } from '@/lib/error-handler'
-import { Server as ServerIO } from "socket.io";
-import { z } from 'zod';
+import { z } from 'zod'
+import { successResponse, errorResponse, handleZodError, handleDatabaseError } from '@/lib/api-response'
+import { createAuditLog } from '@/lib/audit-log'
+import { rateLimitMiddleware, RateLimitPresets } from '@/lib/rate-limit'
+import { getSocketServer } from '@/lib/socket-server'
 
 const createNotificationSchema = z.object({
-  userId: z.string().cuid(), // Ensure userId is a valid CUID
-  type: z.enum(['TEAM_INVITE', 'MATCH_REQUEST', 'PLAYER_INVITE', 'MATCH_SCHEDULED', 'MATCH_REMINDER', 'ACHIEVEMENT', 'SYSTEM']), // Validate against NotificationType enum
-  title: z.string().min(1).max(255), // Add length constraints
-  message: z.string().min(1).max(1000), // Add length constraints
-  data: z.record(z.any()).optional(), // Flexible for JSON data
+  userId: z.string().cuid(),
+  type: z.enum(['TEAM_INVITE', 'MATCH_REQUEST', 'PLAYER_INVITE', 'MATCH_SCHEDULED', 'MATCH_REMINDER', 'ACHIEVEMENT', 'SYSTEM']),
+  title: z.string().min(1).max(255),
+  message: z.string().min(1).max(1000),
+  data: z.record(z.any()).optional(),
 });
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const { searchParams } = new URL(request.url)
@@ -26,8 +34,9 @@ export async function GET(request: NextRequest) {
     const limitParam = searchParams.get('limit')
     const limit = limitParam ? parseInt(limitParam) : 50;
 
-    if (isNaN(limit) || limit <= 0) {
-      return NextResponse.json({ error: 'Invalid limit parameter' }, { status: 400 });
+    // Validate limit
+    if (isNaN(limit) || limit <= 0 || limit > 100) {
+      return errorResponse('INVALID_PARAMS', 'Invalid limit parameter (must be 1-100)', 400);
     }
 
     const where: any = {
@@ -46,17 +55,27 @@ export async function GET(request: NextRequest) {
       take: limit
     })
 
-    return NextResponse.json(notifications)
+    return successResponse(notifications)
   } catch (error) {
-    return handleError(error)
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('GET /api/notifications error:', error)
+    return handleDatabaseError(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const body = await request.json()
@@ -64,14 +83,17 @@ export async function POST(request: NextRequest) {
 
     // Security: Ensure notification is for the authenticated user or an admin
     if (validatedData.userId !== session.user.id) {
-      // Check if the authenticated user has an admin role
       const currentUser = await prisma.user.findUnique({
         where: { id: session.user.id },
         select: { roles: true },
       });
 
-      if (!currentUser || !currentUser.roles.some((role: any) => ["SUPER_ADMIN", "LEAGUE_ADMIN"].includes(role))) {
-        return NextResponse.json({ error: 'Unauthorized to create notification for this user' }, { status: 403 });
+      const isAdmin = currentUser?.roles.some((role: any) => 
+        ["SUPER_ADMIN", "LEAGUE_ADMIN"].includes(role)
+      );
+
+      if (!isAdmin) {
+        return errorResponse('FORBIDDEN', 'Unauthorized to create notification for this user', 403);
       }
     }
 
@@ -85,14 +107,43 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const response = new NextResponse(JSON.stringify(notification), { status: 201 });
-    const io = (response as any).socket?.server?.io as ServerIO | undefined;
-    if (io) {
-      io.to(`user-${validatedData.userId}`).emit("new-notification", notification);
+    // Emit real-time notification via Socket.IO
+    try {
+      const socketServer = getSocketServer();
+      if (socketServer) {
+        socketServer.emitToUser(validatedData.userId, 'notification:new', {
+          id: notification.id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+          createdAt: notification.createdAt.toISOString(),
+        });
+      }
+    } catch (socketError) {
+      console.error('Failed to emit notification:', socketError);
+      // Don't fail the request if socket emission fails
     }
 
-    return response;
+    // Create audit log for system notifications
+    if (validatedData.type === 'SYSTEM') {
+      await createAuditLog('NOTIFICATION_CREATED', {
+        userId: session.user.id,
+        userEmail: session.user.email || undefined,
+        resourceId: notification.id,
+        metadata: {
+          targetUserId: validatedData.userId,
+          notificationType: validatedData.type,
+        },
+      });
+    }
+
+    return successResponse(notification, 201)
   } catch (error) {
-    return handleError(error)
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('POST /api/notifications error:', error)
+    return handleDatabaseError(error)
   }
 }

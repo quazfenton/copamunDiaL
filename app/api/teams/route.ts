@@ -3,41 +3,44 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { successResponse, errorResponse, handleZodError, handleDatabaseError } from '@/lib/api-response'
+import { createAuditLog } from '@/lib/audit-log'
+import { InputSanitizer } from '@/lib/sanitizer'
+import { rateLimitMiddleware, RateLimitPresets } from '@/lib/rate-limit'
 
 const createTeamSchema = z.object({
-  name: z.string().min(1),
-  bio: z.string().optional(),
-  location: z.string().optional(),
+  name: z.string().min(1).max(100),
+  bio: z.string().max(500).optional(),
+  location: z.string().max(100).optional(),
   isPrivate: z.boolean().default(false),
   formation: z.string().default('4-4-2')
 })
 
 const updateTeamSchema = createTeamSchema.partial()
 
-function handleError(error: unknown) {
-  if (error instanceof z.ZodError) {
-    return NextResponse.json({ error: 'Invalid data', details: error.errors }, { status: 400 })
-  }
-  console.error('API Error:', error)
-  return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-}
-
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const { searchParams } = new URL(request.url)
-    const search = searchParams.get('search')
-    const location = searchParams.get('location')
+    const search = searchParams.get('search') ? InputSanitizer.sanitizeSearchQuery(searchParams.get('search')!) : null
+    const location = searchParams.get('location') ? InputSanitizer.sanitizeText(searchParams.get('location')!) : null
     const userTeamsOnly = searchParams.get('userTeamsOnly') === 'true'
     const take = parseInt(searchParams.get('take') || '10')
     const skip = parseInt(searchParams.get('skip') || '0')
 
-    if (isNaN(take) || take <= 0 || isNaN(skip) || skip < 0) {
-      return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400 });
+    // Validate pagination
+    if (isNaN(take) || take <= 0 || take > 100 || isNaN(skip) || skip < 0) {
+      return errorResponse('INVALID_PARAMS', 'Invalid pagination parameters (take: 1-100, skip: >= 0)', 400);
     }
 
     let where: any = {}
@@ -155,17 +158,27 @@ export async function GET(request: NextRequest) {
       })
     })
 
-    return NextResponse.json(formattedTeams)
+    return successResponse(formattedTeams)
   } catch (error) {
-    return handleError(error)
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('GET /api/teams error:', error)
+    return handleDatabaseError(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const body = await request.json()
@@ -173,9 +186,9 @@ export async function POST(request: NextRequest) {
 
     const team = await prisma.team.create({
       data: {
-        name: validatedData.name,
-        bio: validatedData.bio,
-        location: validatedData.location,
+        name: InputSanitizer.sanitizeText(validatedData.name),
+        bio: validatedData.bio ? InputSanitizer.sanitizeRichText(validatedData.bio, { maxLength: 500 }) : null,
+        location: validatedData.location ? InputSanitizer.sanitizeText(validatedData.location) : null,
         formation: validatedData.formation,
         isPrivate: validatedData.isPrivate,
         createdBy: session.user.id,
@@ -209,9 +222,6 @@ export async function POST(request: NextRequest) {
                 preferredPositions: true,
                 image: true,
                 bio: true,
-                email: true,
-                phone: true,
-                location: true,
                 rating: true,
                 matches: true,
                 goals: true,
@@ -225,6 +235,17 @@ export async function POST(request: NextRequest) {
         }
       }
     })
+
+    // Create audit log
+    await createAuditLog('TEAM_CREATED', {
+      userId: session.user.id,
+      userEmail: session.user.email || undefined,
+      resourceId: team.id,
+      metadata: {
+        teamName: team.name,
+        isPrivate: team.isPrivate,
+      },
+    });
 
     const formattedTeam = {
       id: team.id,
@@ -270,8 +291,12 @@ export async function POST(request: NextRequest) {
         }))
     }
 
-    return NextResponse.json(formattedTeam)
+    return successResponse(formattedTeam, 201)
   } catch (error) {
-    return handleError(error)
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('POST /api/teams error:', error)
+    return handleDatabaseError(error)
   }
 }
