@@ -160,18 +160,36 @@ export function middleware(request: NextRequest) {
     'camera=(), microphone=(), geolocation=(self), payment=(self)'
   )
 
-  // Content Security Policy
+  // Content Security Policy with nonce for production
+  const isDev = process.env.NODE_ENV === 'development'
+  const nonce = crypto.randomUUID()
+  
+  // Store nonce in header for inline scripts to use (production only)
+  if (!isDev) {
+    response.headers.set('X-Nonce', nonce)
+  }
+  
+  // CSP configuration: strict in production, relaxed in development for HMR
+  const cspDirectives = [
+    "default-src 'self'",
+    isDev 
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" // Required for Next.js HMR in dev
+      : `script-src 'self' 'nonce-${nonce}' strict-dynamic`,
+    isDev
+      ? "style-src 'self' 'unsafe-inline'" // Required for Tailwind in dev
+      : `style-src 'self' 'nonce-${nonce}'`,
+    "img-src 'self' data: blob: https: https://maps.googleapis.com https://maps.gstatic.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' wss: ws: https: https://maps.googleapis.com https://fonts.googleapis.com",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ]
+  
   response.headers.set(
     'Content-Security-Policy',
-    [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https: https://maps.googleapis.com https://maps.gstatic.com",
-      "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self' wss: ws: https: https://maps.googleapis.com https://fonts.googleapis.com",
-      "frame-ancestors 'none'",
-    ].join('; ')
+    cspDirectives.join('; ')
   )
 
   // Remove powered-by header

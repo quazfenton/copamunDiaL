@@ -7,6 +7,7 @@ import { successResponse, errorResponse, handleZodError, handleDatabaseError } f
 import { createAuditLog } from '@/lib/audit-log'
 import { InputSanitizer } from '@/lib/sanitizer'
 import { rateLimitMiddleware, RateLimitPresets } from '@/lib/rate-limit'
+import { withCSRF } from '@/lib/csrf-middleware'
 
 const createTeamSchema = z.object({
   name: z.string().min(1).max(100),
@@ -168,8 +169,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
+    // CSRF validation (automatic via wrapper)
     // Rate limiting
     const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
     if (rateLimitResult.limited && rateLimitResult.response) {
@@ -300,3 +302,6 @@ export async function POST(request: NextRequest) {
     return handleDatabaseError(error)
   }
 }
+
+// Wrap POST with CSRF protection
+export const POST = withCSRF(postHandler)

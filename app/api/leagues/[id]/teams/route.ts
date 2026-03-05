@@ -13,7 +13,7 @@ const addTeamSchema = z.object({
  * POST /api/leagues/[id]/teams
  * Add a team to the league
  */
-export async function POST(
+async function POSTHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -104,7 +104,7 @@ export async function POST(
  * DELETE /api/leagues/[id]/teams/[teamId]
  * Remove a team from the league
  */
-export async function DELETE(
+async function DELETEHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; teamId: string }> }
 ) {
@@ -151,3 +151,7 @@ export async function DELETE(
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)
+export const DELETE = withCSRF(DELETEHandler)

@@ -11,7 +11,7 @@ const createTeamInviteSchema = z.object({
 });
 
 // Send a team invite
-export async function POST(
+async function POSTHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -184,7 +184,7 @@ export async function GET(
 }
 
 // Update team invite status (accept/decline)
-export async function PATCH(
+async function PATCHHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -236,7 +236,7 @@ export async function PATCH(
 }
 
 // Delete a team invite
-export async function DELETE(
+async function DELETEHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -289,3 +289,8 @@ export async function DELETE(
     return handleError(error);
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)
+export const DELETE = withCSRF(DELETEHandler)
+export const PATCH = withCSRF(PATCHHandler)

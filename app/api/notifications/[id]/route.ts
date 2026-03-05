@@ -8,7 +8,7 @@ import { handleError } from '@/lib/error-handler'
  * DELETE /api/notifications/[id]
  * Delete a notification
  */
-export async function DELETE(
+async function DELETEHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -47,3 +47,6 @@ export async function DELETE(
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const DELETE = withCSRF(DELETEHandler)

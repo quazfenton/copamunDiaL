@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/db";
 
 // Send friend request
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -100,7 +100,7 @@ export async function GET(request: Request) {
 }
 
 // Update friend request status (accept/reject)
-export async function PATCH(request: Request) {
+async function PATCHHandler(request: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -134,3 +134,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)
+export const PATCH = withCSRF(PATCHHandler)

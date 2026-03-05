@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
   try {
     // Rate limiting
     const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
@@ -275,7 +275,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function PUTHandler(request: NextRequest) {
   try {
     // Rate limiting
     const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
@@ -360,3 +360,7 @@ export async function PUT(request: NextRequest) {
     return handleDatabaseError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)
+export const PUT = withCSRF(PUTHandler)

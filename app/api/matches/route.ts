@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
 import { calculateDistance } from '@/lib/utils';
+import { withCSRF } from '@/lib/csrf-middleware';
 
 const createMatchSchema = z.object({
   homeTeamId: z.string(),
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -197,3 +198,6 @@ export async function POST(request: NextRequest) {
     return handleError(error);
   }
 }
+
+// Wrap POST with CSRF protection
+export const POST = withCSRF(postHandler)

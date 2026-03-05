@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
  * POST /api/auth/2fa/enable
  * Enable 2FA for the current user
  */
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
  * POST /api/auth/2fa/disable
  * Disable 2FA for the current user
  */
-export async function PATCH(request: NextRequest) {
+async function PATCHHandler(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -160,3 +160,7 @@ export async function PATCH(request: NextRequest) {
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)
+export const PATCH = withCSRF(PATCHHandler)

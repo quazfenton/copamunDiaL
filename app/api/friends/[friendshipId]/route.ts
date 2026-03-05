@@ -65,7 +65,7 @@ export async function GET(
  * DELETE /api/friends/[friendshipId]
  * Remove friendship
  */
-export async function DELETE(
+async function DELETEHandler(
   request: NextRequest,
   { params }: { params: Promise<{ friendshipId: string }> }
 ) {
@@ -105,3 +105,6 @@ export async function DELETE(
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const DELETE = withCSRF(DELETEHandler)

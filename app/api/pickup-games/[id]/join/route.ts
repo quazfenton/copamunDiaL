@@ -13,7 +13,7 @@ const joinPickupGameSchema = z.object({
  * POST /api/pickup-games/[id]/join
  * Join a pickup game
  */
-export async function POST(
+async function POSTHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -109,3 +109,6 @@ export async function POST(
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)

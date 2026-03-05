@@ -137,7 +137,7 @@ export async function GET(
  * PATCH /api/leagues/[id]
  * Update league
  */
-export async function PATCH(
+async function PATCHHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -204,7 +204,7 @@ export async function PATCH(
  * DELETE /api/leagues/[id]
  * Delete league
  */
-export async function DELETE(
+async function DELETEHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -246,3 +246,7 @@ export async function DELETE(
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const DELETE = withCSRF(DELETEHandler)
+export const PATCH = withCSRF(PATCHHandler)

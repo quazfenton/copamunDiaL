@@ -58,16 +58,40 @@ export class EnhancedSocketServer {
       this.io.use(async (socket, next) => {
         try {
           const token = socket.handshake.auth.token || socket.handshake.query.token as string;
-          
+
           if (!token) {
             return next(new Error('Authentication required'));
           }
 
-          const user = verify(token, process.env.NEXTAUTH_SECRET || 'fallback-secret');
+          // SECURE: Validate JWT secret - never use fallback in production
+          const jwtSecret = process.env.NEXTAUTH_SECRET;
+
+          if (!jwtSecret) {
+            console.error('❌ CRITICAL SECURITY ERROR: NEXTAUTH_SECRET is not set');
+            if (process.env.NODE_ENV === 'production') {
+              // FAIL CLOSED: Reject connection in production
+              return next(new Error('Server configuration error: JWT secret not configured'));
+            }
+            // Development only - generate temporary secret with warning
+            console.warn('⚠️  Development mode: NEXTAUTH_SECRET not set. Generating temporary secret.');
+            console.warn('Set NEXTAUTH_SECRET environment variable for production.');
+          }
+
+          if (jwtSecret && jwtSecret.length < 32) {
+            console.error('❌ SECURITY ERROR: NEXTAUTH_SECRET must be at least 32 characters');
+            console.error(`Current length: ${jwtSecret.length} characters`);
+            if (process.env.NODE_ENV === 'production') {
+              return next(new Error('Server configuration error: JWT secret too weak'));
+            }
+          }
+
+          // SECURE: Only use provided secret, never a hardcoded fallback
+          const secretToUse = jwtSecret || `dev-${Date.now()}-${Math.random()}`;
+          const user = verify(token, secretToUse);
           socket.data.userId = (user as any).id;
           socket.data.userName = (user as any).name;
           socket.data.userEmail = (user as any).email;
-          
+
           next();
         } catch (err) {
           console.error('Socket auth error:', err);
@@ -103,6 +127,9 @@ export class EnhancedSocketServer {
     // Join user's personal room
     socket.join(`user:${userId}`);
 
+    // MESSAGE PERSISTENCE: Deliver offline messages on reconnect
+    this.deliverOfflineMessages(userId, socket);
+
     // Broadcast presence to user's friends
     this.broadcastPresence(userId, 'online');
 
@@ -110,14 +137,14 @@ export class EnhancedSocketServer {
     socket.on('team:join', async ({ teamId }, callback) => {
       try {
         const isMember = await this.verifyTeamMembership(userId, teamId);
-        
+
         if (!isMember) {
           callback?.({ success: false, error: 'Not a team member' });
           return;
         }
 
         socket.join(`team:${teamId}`);
-        
+
         // Notify others in team
         socket.to(`team:${teamId}`).emit('user:joined', {
           userId,
@@ -408,12 +435,96 @@ export class EnhancedSocketServer {
   private getUserRecentMessages(userId: string): number[] {
     const now = Date.now();
     const timestamps = this.userMessageTimestamps.get(userId) || [];
-    
+
     // Keep only last minute's messages
     const recent = timestamps.filter((ts) => now - ts < 60000);
     this.userMessageTimestamps.set(userId, recent);
-    
+
     return recent;
+  }
+
+  // ============================================================================
+  // MESSAGE PERSISTENCE FOR OFFLINE USERS
+  // ============================================================================
+
+  private async deliverOfflineMessages(userId: string, socket: Socket): Promise<void> {
+    """Deliver stored offline messages when user reconnects"""
+    try {
+      if (!this.pubClient) {
+        console.log('Redis not available, skipping offline message delivery');
+        return;
+      }
+
+      // Get offline messages from Redis
+      const messagesKey = `offline_messages:${userId}`;
+      const messagesJson = await this.pubClient.lRange(messagesKey, 0, -1);
+
+      if (!messagesJson || messagesJson.length === 0) {
+        return; // No offline messages
+      }
+
+      console.log(`Delivering ${messagesJson.length} offline messages to ${userId}`);
+
+      // Deliver each message
+      for (const messageJson of messagesJson) {
+        try {
+          const message = JSON.parse(messageJson);
+          
+          // Emit to socket
+          socket.emit('message:receive', {
+            id: message.id,
+            content: message.content,
+            type: message.type,
+            from: message.from,
+            timestamp: message.timestamp,
+            offline: true, // Mark as offline message
+          });
+
+          console.log(`Delivered offline message ${message.id} to ${userId}`);
+        } catch (parseError) {
+          console.error('Failed to parse offline message:', parseError);
+        }
+      }
+
+      // Clear delivered messages
+      await this.pubClient.del(messagesKey);
+      console.log(`Cleared offline messages for ${userId}`);
+
+    } catch (error) {
+      console.error('Deliver offline messages error:', error);
+    }
+  }
+
+  private async storeOfflineMessage(
+    recipientId: string,
+    message: {
+      id: string;
+      content: string;
+      type: string;
+      from: string;
+      timestamp: string;
+    }
+  ): Promise<void> {
+    """Store message in Redis for offline delivery"""
+    try {
+      if (!this.pubClient) {
+        console.log('Redis not available, cannot store offline message');
+        return;
+      }
+
+      const messagesKey = `offline_messages:${recipientId}`;
+      
+      // Store message
+      await this.pubClient.rPush(messagesKey, JSON.stringify(message));
+      
+      // Set expiry (7 days)
+      await this.pubClient.expire(messagesKey, 7 * 24 * 60 * 60);
+
+      console.log(`Stored offline message for ${recipientId}`);
+
+    } catch (error) {
+      console.error('Store offline message error:', error);
+    }
   }
 
   // Public methods for emitting events
@@ -422,7 +533,48 @@ export class EnhancedSocketServer {
   }
 
   public emitToTeam(teamId: string, event: string, data: any): void {
+    // MESSAGE PERSISTENCE: Store message for offline team members
+    if (event === 'message:receive' && data?.content) {
+      this.storeMessageForOfflineMembers(teamId, data);
+    }
+    
     this.io.to(`team:${teamId}`).emit(event, data);
+  }
+
+  private async storeMessageForOfflineMembers(teamId: string, message: any): Promise<void> {
+    """Store message for team members who are currently offline"""
+    try {
+      // Get online users in team room
+      const teamRoom = `team:${teamId}`;
+      const sockets = await this.io.in(teamRoom).fetchSockets();
+      const onlineUserIds = new Set(
+        sockets.map(socket => this.socketToUser.get(socket.id)).filter(Boolean)
+      );
+
+      // Get all team members from database
+      const memberships = await prisma.teamMember.findMany({
+        where: { teamId },
+        include: { user: true }
+      });
+
+      // Store for offline members
+      for (const membership of memberships) {
+        if (!onlineUserIds.has(membership.userId)) {
+          await this.storeOfflineMessage(membership.userId, {
+            id: message.id || `msg_${Date.now()}`,
+            content: message.content,
+            type: message.type || 'TEXT',
+            from: message.from || 'system',
+            timestamp: message.timestamp || new Date().toISOString(),
+          });
+        }
+      }
+
+      console.log(`Stored message for ${memberships.length - onlineUserIds.size} offline team members`);
+
+    } catch (error) {
+      console.error('Store message for offline members error:', error);
+    }
   }
 
   public emitToMatch(matchId: string, event: string, data: any): void {

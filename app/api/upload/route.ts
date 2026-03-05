@@ -40,7 +40,7 @@ function sanitizeFilename(filename: string): string {
     .toLowerCase()
 }
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -151,3 +151,6 @@ export async function POST(request: NextRequest) {
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)

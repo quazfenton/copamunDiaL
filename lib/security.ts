@@ -1,8 +1,8 @@
 /**
  * Security Middleware & Utilities
- * 
+ *
  * Provides:
- * - Rate limiting
+ * - Rate limiting (Redis-backed in production, in-memory fallback)
  * - Request validation
  * - Security headers
  * - CSRF protection utilities
@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { Redis } from '@upstash/redis'
 
 // Types
 interface RateLimitEntry {
@@ -23,8 +24,40 @@ interface RateLimitConfig {
   message?: string      // Custom error message
 }
 
-// In-memory rate limit store (in production, use Redis)
+// In-memory rate limit store (fallback when Redis unavailable)
 const rateLimitStore = new Map<string, RateLimitEntry>()
+
+// Redis client for distributed rate limiting (production)
+let redisClient: Redis | null = null
+
+/**
+ * Initialize Redis client for rate limiting
+ * Call this on application startup
+ */
+export function initRedisRateLimiter(redisUrl?: string): void {
+  const url = redisUrl || process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  
+  if (url && token) {
+    try {
+      redisClient = new Redis({ url, token })
+      console.log('✅ Redis rate limiting initialized')
+    } catch (error) {
+      console.error('❌ Failed to initialize Redis for rate limiting:', error)
+      redisClient = null
+    }
+  } else if (process.env.NODE_ENV === 'production') {
+    console.warn('⚠️  Production mode: Redis not configured. Rate limiting will use in-memory storage (not distributed).')
+    console.warn('   Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables.')
+  }
+}
+
+/**
+ * Get Redis client instance
+ */
+export function getRedisClient(): Redis | null {
+  return redisClient
+}
 
 // Default rate limit configurations
 export const RATE_LIMITS = {
@@ -81,89 +114,167 @@ return ip
 
 /**
  * Rate limiter middleware
+ * Uses Redis for distributed rate limiting in production, falls back to in-memory
  */
 export function rateLimit(config: RateLimitConfig = RATE_LIMITS.default) {
   return async function rateLimitMiddleware(request: NextRequest): Promise<NextResponse | null> {
     const clientId = getClientIdentifier(request)
-    const key = `${request.nextUrl.pathname}:${clientId}`
+    const key = `ratelimit:${request.nextUrl.pathname}:${clientId}`
     const now = Date.now()
-    
-    let entry = rateLimitStore.get(key)
-    
-    // Create new entry if doesn't exist or expired
-    if (!entry || entry.resetTime < now) {
-      entry = {
-        count: 0,
-        resetTime: now + config.windowMs,
-      }
+
+    // Use Redis if available (production), otherwise use in-memory
+    if (redisClient) {
+      return await rateLimitWithRedis(redisClient, key, config, now)
+    } else {
+      return rateLimitWithMemory(key, config, now)
     }
+  }
+}
+
+/**
+ * Redis-backed rate limiting (production)
+ */
+async function rateLimitWithRedis(
+  redis: Redis,
+  key: string,
+  config: RateLimitConfig,
+  now: number
+): Promise<NextResponse | null> {
+  try {
+    const windowKey = `${key}:${Math.floor(now / config.windowMs)}`
     
-    entry.count++
-    rateLimitStore.set(key, entry)
+    // Use Redis INCR with expiration
+    const current = await redis.incr(windowKey)
     
-    // Calculate remaining requests and reset time
-    const remaining = Math.max(0, config.maxRequests - entry.count)
-    const resetSeconds = Math.ceil((entry.resetTime - now) / 1000)
-    
-    // Check if rate limit exceeded
-    if (entry.count > config.maxRequests) {
+    // Set expiration on first request
+    if (current === 1) {
+      await redis.expire(windowKey, Math.ceil(config.windowMs / 1000))
+    }
+
+    const remaining = Math.max(0, config.maxRequests - current)
+    const resetSeconds = Math.ceil(config.windowMs / 1000)
+
+    if (current > config.maxRequests) {
       return NextResponse.json(
-        { 
+        {
           error: config.message || 'Too many requests, please try again later',
           retryAfter: resetSeconds,
         },
-        { 
+        {
           status: 429,
           headers: {
             'X-RateLimit-Limit': config.maxRequests.toString(),
             'X-RateLimit-Remaining': '0',
-            'X-RateLimit-Reset': entry.resetTime.toString(),
+            'X-RateLimit-Reset': (now + config.windowMs).toString(),
             'Retry-After': resetSeconds.toString(),
           }
         }
       )
     }
-    
-    // Return null to continue processing (rate limit not exceeded)
+
     return null
+  } catch (error) {
+    console.error('Redis rate limit error:', error)
+    // Fallback to in-memory on Redis error
+    return rateLimitWithMemory(key, config, now)
   }
+}
+
+/**
+ * In-memory rate limiting (development/fallback)
+ */
+function rateLimitWithMemory(
+  key: string,
+  config: RateLimitConfig,
+  now: number
+): NextResponse | null {
+  let entry = rateLimitStore.get(key)
+
+  // Create new entry if doesn't exist or expired
+  if (!entry || entry.resetTime < now) {
+    entry = {
+      count: 0,
+      resetTime: now + config.windowMs,
+    }
+  }
+
+  entry.count++
+  rateLimitStore.set(key, entry)
+
+  const remaining = Math.max(0, config.maxRequests - entry.count)
+  const resetSeconds = Math.ceil((entry.resetTime - now) / 1000)
+
+  if (entry.count > config.maxRequests) {
+    return NextResponse.json(
+      {
+        error: config.message || 'Too many requests, please try again later',
+        retryAfter: resetSeconds,
+      },
+      {
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': config.maxRequests.toString(),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': entry.resetTime.toString(),
+          'Retry-After': resetSeconds.toString(),
+        }
+      }
+    )
+  }
+
+  return null
 }
 
 /**
  * Apply security headers to response
  */
-export function applySecurityHeaders(response: NextResponse): NextResponse {
+export function applySecurityHeaders(response: NextResponse, isDev = false): NextResponse {
   const headers = response.headers
-  
+
   // Prevent clickjacking
   headers.set('X-Frame-Options', 'DENY')
-  
+
   // Enable XSS filter
   headers.set('X-XSS-Protection', '1; mode=block')
-  
+
   // Prevent MIME type sniffing
   headers.set('X-Content-Type-Options', 'nosniff')
-  
+
   // Referrer policy
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  
+
   // Permissions policy
   headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)')
-  
-  // Content Security Policy (adjust as needed)
-  headers.set('Content-Security-Policy', [
+
+  // Generate nonce for production CSP
+  const nonce = crypto.randomUUID()
+  if (!isDev) {
+    headers.set('X-Nonce', nonce)
+  }
+
+  // Content Security Policy - strict in production, relaxed in development
+  const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline'",
+    isDev 
+      ? "script-src 'self' 'unsafe-inline'" // Development mode
+      : `script-src 'self' 'nonce-${nonce}'`,
+    isDev
+      ? "style-src 'self' 'unsafe-inline'" // Development mode
+      : `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self' wss: ws: https:",
     "frame-ancestors 'none'",
-  ].join('; '))
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ')
   
+  headers.set('Content-Security-Policy', cspDirectives)
+
   // Strict Transport Security (HSTS)
   headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
-  
+
   return response
 }
 
@@ -238,6 +349,63 @@ export function generateCSRFToken(): string {
   const array = new Uint8Array(32)
   crypto.getRandomValues(array)
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Validate CSRF token from request
+ * Must be called on all state-changing operations (POST, PUT, DELETE, PATCH)
+ */
+export function validateCSRFToken(request: NextRequest): { valid: boolean; error?: string } {
+  const csrfToken = request.headers.get('x-csrf-token')
+  const sessionToken = request.cookies.get('csrf_token')?.value
+  
+  if (!csrfToken) {
+    return { valid: false, error: 'Missing CSRF token' }
+  }
+  
+  if (!sessionToken) {
+    return { valid: false, error: 'Missing session CSRF token' }
+  }
+  
+  // Constant-time comparison to prevent timing attacks
+  try {
+    const tokenBuffer = Buffer.from(csrfToken, 'hex')
+    const sessionBuffer = Buffer.from(sessionToken, 'hex')
+    
+    if (tokenBuffer.length !== sessionBuffer.length) {
+      return { valid: false, error: 'CSRF token mismatch' }
+    }
+    
+    const isValid = crypto.timingSafeEqual(tokenBuffer, sessionBuffer)
+    return { valid: isValid, error: isValid ? undefined : 'CSRF token mismatch' }
+  } catch (error) {
+    return { valid: false, error: 'Invalid CSRF token format' }
+  }
+}
+
+/**
+ * Middleware wrapper for CSRF protection on state-changing operations
+ */
+export function withCSRFProtection(
+  handler: (request: NextRequest) => Promise<NextResponse>,
+  options: { methods?: string[] } = {}
+) {
+  const protectedMethods = options.methods || ['POST', 'PUT', 'DELETE', 'PATCH']
+  
+  return async function csrfProtectedHandler(request: NextRequest): Promise<NextResponse> {
+    // Only validate on state-changing methods
+    if (protectedMethods.includes(request.method)) {
+      const csrfResult = validateCSRFToken(request)
+      if (!csrfResult.valid) {
+        return NextResponse.json(
+          { error: csrfResult.error || 'CSRF validation failed' },
+          { status: 403 }
+        )
+      }
+    }
+    
+    return handler(request)
+  }
 }
 
 /**
@@ -349,6 +517,23 @@ export function createAuditLog(
   return log
 }
 
+export {
+  rateLimit,
+  RATE_LIMITS,
+  applySecurityHeaders,
+  sanitizeString,
+  sanitizeObject,
+  validateOrigin,
+  generateCSRFToken,
+  validateCSRFToken,
+  withCSRFProtection,
+  validatePasswordStrength,
+  withSecurity,
+  createAuditLog,
+  initRedisRateLimiter,
+  getRedisClient,
+}
+
 export default {
   rateLimit,
   RATE_LIMITS,
@@ -357,7 +542,11 @@ export default {
   sanitizeObject,
   validateOrigin,
   generateCSRFToken,
+  validateCSRFToken,
+  withCSRFProtection,
   validatePasswordStrength,
   withSecurity,
   createAuditLog,
+  initRedisRateLimiter,
+  getRedisClient,
 }

@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
  * POST /api/tactics/formations
  * Save a formation preset
  */
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
  * DELETE /api/tactics/formations/[id]
  * Delete a formation preset
  */
-export async function DELETE(
+async function DELETEHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -126,3 +126,7 @@ export async function DELETE(
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)
+export const DELETE = withCSRF(DELETEHandler)

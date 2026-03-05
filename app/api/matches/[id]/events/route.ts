@@ -84,7 +84,7 @@ export async function GET(
  * POST /api/matches/[id]/events
  * Create a new match event
  */
-export async function POST(
+async function POSTHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -166,7 +166,7 @@ export async function POST(
  * DELETE /api/matches/[id]/events/[eventId]
  * Delete a match event
  */
-export async function DELETE(
+async function DELETEHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; eventId: string }> }
 ) {
@@ -226,3 +226,7 @@ export async function DELETE(
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)
+export const DELETE = withCSRF(DELETEHandler)
