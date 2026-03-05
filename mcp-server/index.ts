@@ -937,7 +937,7 @@ server.tool(
 // Tool: Find Nearby Players
 server.tool(
   'find_nearby_players',
-  'Find available players near a specific location',
+  'Find available players near a specific location using Haversine formula',
   {
     latitude: z.number(),
     longitude: z.number(),
@@ -949,7 +949,26 @@ server.tool(
     try {
       const { latitude, longitude, radius, position, minRating } = params;
 
-      // Find players in the area (simplified - would need proper geospatial query in production)
+      // Haversine formula to calculate distance between two coordinates
+      const haversineDistance = (
+        lat1: number,
+        lon1: number,
+        lat2: number,
+        lon2: number
+      ): number => {
+        const R = 6371; // Earth's radius in kilometers
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLon = ((lon2 - lon1) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      };
+
       const where: any = {
         isActive: true,
       };
@@ -973,20 +992,27 @@ server.tool(
           position: true,
           preferredPositions: true,
           rating: true,
+          latitude: true,
+          longitude: true,
           location: true,
           image: true,
           matches: true,
           goals: true,
           assists: true,
         },
-        take: 50,
+        take: 100,
       });
 
-      // Calculate distances (simplified Haversine formula)
+      // Calculate actual distances using Haversine formula
       const playersWithDistance = players
+        .filter((player) => player.latitude && player.longitude)
         .map((player) => {
-          // Simplified distance calculation (would use proper coordinates in production)
-          const distance = Math.random() * radius; // Placeholder
+          const distance = haversineDistance(
+            latitude,
+            longitude,
+            player.latitude!,
+            player.longitude!
+          );
           return { ...player, distance: distance.toFixed(2) };
         })
         .filter((p) => parseFloat(p.distance) <= radius)

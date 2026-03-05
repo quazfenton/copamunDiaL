@@ -1,40 +1,109 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY = 1000;
+const RECONNECT_MAX_DELAY = 5000;
 
 // Singleton socket instance
 let socketInstance: Socket | null = null;
 
-function getOrCreateSocket(url?: string) {
+function getOrCreateSocket(url?: string, token?: string) {
   if (!socketInstance) {
-    socketInstance = io(url || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
+    const socketUrl = url || process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    
+    socketInstance = io(socketUrl, {
+      auth: { token },
+      reconnection: true,
+      reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+      reconnectionDelay: RECONNECT_DELAY,
+      reconnectionDelayMax: RECONNECT_MAX_DELAY,
+      reconnectionJitter: 0.3, // Add jitter to prevent thundering herd
+      timeout: 10000,
+      transports: ['websocket', 'polling'],
+      autoConnect: true,
+    });
   }
   return socketInstance;
 }
 
 export function useSocket(url?: string) {
   const [isConnected, setIsConnected] = useState(socketInstance?.connected || false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const socket = getOrCreateSocket(url);
 
   useEffect(() => {
     if (socket.connected) {
       setIsConnected(true);
+      setReconnectAttempts(0);
     }
 
-    const handleConnect = () => setIsConnected(true);
-    const handleDisconnect = () => setIsConnected(false);
+    const handleConnect = () => {
+      setIsConnected(true);
+      setReconnectAttempts(0);
+      setLastError(null);
+    };
+    
+    const handleDisconnect = () => {
+      setIsConnected(false);
+    };
+    
+    const handleConnectError = (error: Error) => {
+      console.error('Socket connection error:', error);
+      setLastError(error.message);
+      
+      if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        const delay = Math.min(
+          RECONNECT_DELAY * Math.pow(2, reconnectAttempts) * (0.5 + Math.random()),
+          RECONNECT_MAX_DELAY
+        );
+        
+        reconnectTimerRef.current = setTimeout(() => {
+          setReconnectAttempts(prev => prev + 1);
+          socket.connect();
+        }, delay);
+      }
+    };
 
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
 
     return () => {
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+      }
     };
+  }, [socket, reconnectAttempts]);
+
+  const reconnect = useCallback(() => {
+    setReconnectAttempts(0);
+    socket.connect();
   }, [socket]);
 
-  return { socket, isConnected };
+  const disconnect = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+    }
+    socket.disconnect();
+  }, [socket]);
+
+  return { 
+    socket, 
+    isConnected,
+    reconnectAttempts,
+    lastError,
+    reconnect,
+    disconnect,
+  };
 }
 
 export function useNotifications() {
