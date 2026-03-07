@@ -4,10 +4,10 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { successResponse, errorResponse, handleZodError, handleDatabaseError } from '@/lib/api-response'
-import { createAuditLog } from '@/lib/audit-log'
+import { createAuditLog, AuditEventType } from '@/lib/audit-log'
 import { InputSanitizer } from '@/lib/sanitizer'
 import { rateLimitMiddleware, RateLimitPresets } from '@/lib/rate-limit'
-import { withCSRF } from '@/lib/csrf-middleware'
+import { withCSRF } from '@/lib/security'
 
 const createTeamSchema = z.object({
   name: z.string().min(1).max(100),
@@ -239,7 +239,7 @@ async function postHandler(request: NextRequest) {
     })
 
     // Create audit log
-    await createAuditLog('TEAM_CREATED', {
+    await createAuditLog(AuditEventType.TEAM_CREATED, {
       userId: session.user.id,
       userEmail: session.user.email || undefined,
       resourceId: team.id,

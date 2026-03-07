@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
+import { withCSRF } from '@/lib/security';
 
 const createTeamInviteSchema = z.object({
   toUserId: z.string().cuid(), // Ensure toUserId is a valid CUID

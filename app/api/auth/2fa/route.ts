@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { handleError } from '@/lib/error-handler'
+import { withCSRF } from '@/lib/security'
 import {
   generate2FASecret,
   generate2FAQRCode,

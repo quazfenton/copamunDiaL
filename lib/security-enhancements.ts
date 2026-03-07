@@ -50,17 +50,17 @@ export function getJwtSecret(): string {
   if (secret.length < 32) {
     console.error('❌ SECURITY ERROR: NEXTAUTH_SECRET must be at least 32 characters');
     console.error(`Current length: ${secret.length} characters`);
-    
+
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
         'NEXTAUTH_SECRET must be at least 32 characters. ' +
-        `Current length: ${secret.length}. Generate a stronger secret.'
+        `Current length: ${secret.length}. Generate a stronger secret.`
       );
     }
-    
+
     console.warn('⚠️  Weak secret detected. Use at least 32 characters for production.');
   }
-  
+
   return secret;
 }
 

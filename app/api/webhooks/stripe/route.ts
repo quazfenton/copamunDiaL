@@ -14,7 +14,7 @@ import Stripe from 'stripe';
 import { prisma } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
 import { sendPaymentConfirmationEmail } from '@/lib/email';
-import { createAuditLog } from '@/lib/audit-log';
+import { createAuditLog, AuditEventType } from '@/lib/audit-log';
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
           });
 
           // Create audit log
-          await createAuditLog('PAYMENT_SUCCEEDED', {
+          await createAuditLog(AuditEventType.PAYMENT_SUCCEEDED, {
             userId: paymentIntent.metadata.userId,
             resourceId: paymentIntent.id,
             metadata: {
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
           });
 
           // Create audit log
-          await createAuditLog('PAYMENT_FAILED', {
+          await createAuditLog(AuditEventType.PAYMENT_FAILED, {
             userId: paymentIntent.metadata.userId,
             resourceId: paymentIntent.id,
             metadata: {
@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
             }
 
             // Create audit log
-            await createAuditLog('TOURNAMENT_REGISTRATION', {
+            await createAuditLog(AuditEventType.TOURNAMENT_REGISTRATION, {
               userId: session.metadata.userId,
               resourceId: session.id,
               metadata: {
@@ -263,11 +263,11 @@ export async function POST(req: NextRequest) {
        */
       case 'charge.dispute.created': {
         const dispute = event.data.object as Stripe.Dispute;
-        
+
         console.log('Dispute created:', dispute.id);
 
         // Flag for manual review
-        await createAuditLog('PAYMENT_DISPUTE', {
+        await createAuditLog(AuditEventType.PAYMENT_DISPUTE, {
           userId: dispute.metadata?.userId,
           resourceId: dispute.charge as string,
           metadata: {

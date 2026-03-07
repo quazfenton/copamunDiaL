@@ -33,7 +33,7 @@ export async function geocodeAddress(address: string): Promise<{
         address,
         key: GOOGLE_MAPS_API_KEY,
         language: 'en',
-      },
+      } as any,
       timeout: 5000,
     })
 
@@ -46,6 +46,14 @@ export async function geocodeAddress(address: string): Promise<{
     }
 
     const result = response.data.results[0]
+    if (!result?.geometry?.location) {
+      return {
+        latitude: null,
+        longitude: null,
+        formattedAddress: null,
+      }
+    }
+
     return {
       latitude: result.geometry.location.lat,
       longitude: result.geometry.location.lng,
@@ -75,7 +83,7 @@ export async function reverseGeocode(
         latlng: { lat: latitude, lng: longitude },
         key: GOOGLE_MAPS_API_KEY,
         language: 'en',
-      },
+      } as any,
       timeout: 5000,
     })
 
@@ -115,7 +123,7 @@ export async function calculateDistance(
         key: GOOGLE_MAPS_API_KEY,
         mode,
         units: 'metric',
-      },
+      } as any,
       timeout: 5000,
     })
 
@@ -123,7 +131,11 @@ export async function calculateDistance(
       return null
     }
 
-    const element = response.data.rows[0].elements[0]
+    const element = response.data.rows[0]?.elements[0]
+    if (!element?.distance?.value || !element?.duration?.value) {
+      return null
+    }
+
     return {
       distanceMeters: element.distance.value,
       distanceText: element.distance.text,
@@ -169,18 +181,20 @@ export async function findNearbyPlaces(
       timeout: 5000,
     })
 
-    if (response.data.status !== 'OK') {
+    if (response.data.status !== 'OK' || !response.data.results) {
       return []
     }
 
-    return response.data.results.map((place) => ({
-      name: place.name,
-      address: place.vicinity,
-      latitude: place.geometry.location.lat,
-      longitude: place.geometry.location.lng,
-      placeId: place.place_id,
-      rating: place.rating,
-    }))
+    return response.data.results
+      .filter((place) => place.name && place.geometry?.location && place.place_id)
+      .map((place) => ({
+        name: place.name!,
+        address: place.vicinity ?? 'Unknown',
+        latitude: place.geometry!.location!.lat,
+        longitude: place.geometry!.location!.lng,
+        placeId: place.place_id!,
+        rating: place.rating,
+      }))
   } catch (error) {
     console.error('Places search error:', error)
     return []

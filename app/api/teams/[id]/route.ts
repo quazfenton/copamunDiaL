@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { updateTeamSchema } from '@/lib/schemas'
 import { handleError } from '@/lib/error-handler'
+import { withCSRF } from '@/lib/security'
 
 export async function GET(
   request: NextRequest,

@@ -240,3 +240,9 @@ export enum EventType {
   MATCH_END = 'MATCH_END',
   HALF_TIME = 'HALF_TIME'
 }
+
+// Tournament bracket types
+export type BracketType = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'ROUND_ROBIN' | 'SWISS'
+
+// Re-export AuditEventType for convenience
+export { AuditEventType } from './audit-log'

@@ -4,10 +4,11 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { successResponse, errorResponse, handleZodError, handleDatabaseError } from '@/lib/api-response'
-import { createAuditLog } from '@/lib/audit-log'
+import { createAuditLog, AuditEventType } from '@/lib/audit-log'
 import { rateLimitMiddleware, RateLimitPresets } from '@/lib/rate-limit'
 import { InputSanitizer } from '@/lib/sanitizer'
 import { createTournamentBracket, getTournamentBracket, BracketType } from '@/lib/tournament-bracket'
+import { withCSRF } from '@/lib/security'
 
 const createTournamentSchema = z.object({
   name: z.string().min(1).max(100),
@@ -191,7 +192,7 @@ async function POSTHandler(request: NextRequest) {
     })
 
     // Create audit log
-    await createAuditLog('TOURNAMENT_CREATED', {
+    await createAuditLog(AuditEventType.TOURNAMENT_CREATED, {
       userId: session.user.id,
       userEmail: session.user.email || undefined,
       resourceId: tournament.id,

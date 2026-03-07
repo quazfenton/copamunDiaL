@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { handleError } from '@/lib/error-handler'
+import { withCSRF } from '@/lib/security'
 
 const joinPickupGameSchema = z.object({
   // Schema for validation if needed in future

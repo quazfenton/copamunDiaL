@@ -4,9 +4,10 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { successResponse, errorResponse, handleZodError, handleDatabaseError } from '@/lib/api-response'
-import { createAuditLog } from '@/lib/audit-log'
+import { createAuditLog, AuditEventType } from '@/lib/audit-log'
 import { rateLimitMiddleware, RateLimitPresets } from '@/lib/rate-limit'
 import { getSocketServer } from '@/lib/socket-server'
+import { withCSRF } from '@/lib/security'
 
 const createNotificationSchema = z.object({
   userId: z.string().cuid(),
@@ -127,7 +128,7 @@ async function POSTHandler(request: NextRequest) {
 
     // Create audit log for system notifications
     if (validatedData.type === 'SYSTEM') {
-      await createAuditLog('NOTIFICATION_CREATED', {
+      await createAuditLog(AuditEventType.NOTIFICATION_CREATED, {
         userId: session.user.id,
         userEmail: session.user.email || undefined,
         resourceId: notification.id,

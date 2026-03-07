@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { handleError } from '@/lib/error-handler'
 import { createMatchEvent, getMatchEvents, getLiveCommentary, MatchEventType } from '@/lib/match-events'
+import { withCSRF } from '@/lib/security'
 
 const createEventSchema = z.object({
   type: z.nativeEnum(MatchEventType),

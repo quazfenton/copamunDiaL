@@ -1,0 +1,11 @@
+﻿name: 2. Security & Dependency Audit
+on:
+  schedule:
+    - cron: '0 2 * * 1' # Every Monday at 2 AM
+  pull_request:
+jobs:
+  node-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm audit --audit-level=high

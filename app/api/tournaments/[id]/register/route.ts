@@ -5,6 +5,8 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { handleError } from '@/lib/error-handler'
 import { createTournamentBracket } from '@/lib/tournament-bracket'
+import { withCSRF } from '@/lib/security'
+import type { BracketType } from '@/lib/types'
 
 const registerTeamSchema = z.object({
   teamId: z.string(),

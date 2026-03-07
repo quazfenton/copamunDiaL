@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 import sharp from 'sharp'
 import { z } from 'zod'
 import { handleError } from '@/lib/error-handler'
+import { withCSRF } from '@/lib/security'
 
 const UPLOAD_DIR = join(process.cwd(), 'public/uploads')
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -108,23 +109,23 @@ async function POSTHandler(request: NextRequest) {
       if (validatedType === 'avatar') {
         // Resize and crop avatar to 200x200, convert to JPEG for consistency
         const metadata = await sharp(buffer).metadata()
-        processedBuffer = await sharp(buffer)
+        processedBuffer = Buffer.from(await sharp(buffer)
           .resize(200, 200, { fit: 'cover', position: 'center' })
           .jpeg({ quality: 90, progressive: true })
-          .toBuffer()
+          .toBuffer()) as Buffer
         outputFormat = 'jpg'
       } else if (validatedType === 'team-logo') {
         // Resize team logo to max 300x300, maintain aspect ratio
-        processedBuffer = await sharp(buffer)
+        processedBuffer = Buffer.from(await sharp(buffer)
           .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
           .jpeg({ quality: 90, progressive: true })
-          .toBuffer()
+          .toBuffer()) as Buffer
         outputFormat = 'jpg'
       } else {
         // For general images, optimize but maintain format
-        processedBuffer = await sharp(buffer)
+        processedBuffer = Buffer.from(await sharp(buffer)
           .jpeg({ quality: 85, progressive: true })
-          .toBuffer()
+          .toBuffer()) as Buffer
         outputFormat = 'jpg'
       }
     } catch (processError) {
@@ -134,7 +135,7 @@ async function POSTHandler(request: NextRequest) {
     }
 
     // Save file
-    await writeFile(filePath, processedBuffer)
+    await writeFile(filePath, processedBuffer as Buffer)
 
     const fileUrl = `/uploads/${fileName}`
 

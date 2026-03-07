@@ -371,12 +371,18 @@ export function validateCSRFToken(request: NextRequest): { valid: boolean; error
   try {
     const tokenBuffer = Buffer.from(csrfToken, 'hex')
     const sessionBuffer = Buffer.from(sessionToken, 'hex')
-    
+
     if (tokenBuffer.length !== sessionBuffer.length) {
       return { valid: false, error: 'CSRF token mismatch' }
     }
-    
-    const isValid = crypto.timingSafeEqual(tokenBuffer, sessionBuffer)
+
+    // Use constant-time comparison to prevent timing attacks
+    // In Edge runtime, use a simple constant-time comparison
+    let result = 0
+    for (let i = 0; i < tokenBuffer.length; i++) {
+      result |= tokenBuffer[i] ^ sessionBuffer[i]
+    }
+    const isValid = result === 0
     return { valid: isValid, error: isValid ? undefined : 'CSRF token mismatch' }
   } catch (error) {
     return { valid: false, error: 'Invalid CSRF token format' }
@@ -510,30 +516,17 @@ export function createAuditLog(
     method: request.method,
     details,
   }
-  
+
   // In production, send to logging service
   console.log('[AUDIT]', JSON.stringify(log))
-  
+
   return log
 }
 
-export {
-  rateLimit,
-  RATE_LIMITS,
-  applySecurityHeaders,
-  sanitizeString,
-  sanitizeObject,
-  validateOrigin,
-  generateCSRFToken,
-  validateCSRFToken,
-  withCSRFProtection,
-  validatePasswordStrength,
-  withSecurity,
-  createAuditLog,
-  initRedisRateLimiter,
-  getRedisClient,
-}
+// Alias exports for convenience (must be before default export that uses them)
+export const withCSRF = withCSRFProtection
 
+// Default export for convenience
 export default {
   rateLimit,
   RATE_LIMITS,
@@ -544,6 +537,7 @@ export default {
   generateCSRFToken,
   validateCSRFToken,
   withCSRFProtection,
+  withCSRF,
   validatePasswordStrength,
   withSecurity,
   createAuditLog,

@@ -448,7 +448,7 @@ export class EnhancedSocketServer {
   // ============================================================================
 
   private async deliverOfflineMessages(userId: string, socket: Socket): Promise<void> {
-    """Deliver stored offline messages when user reconnects"""
+    // Deliver stored offline messages when user reconnects
     try {
       if (!this.pubClient) {
         console.log('Redis not available, skipping offline message delivery');
@@ -505,7 +505,7 @@ export class EnhancedSocketServer {
       timestamp: string;
     }
   ): Promise<void> {
-    """Store message in Redis for offline delivery"""
+    // Store message in Redis for offline delivery
     try {
       if (!this.pubClient) {
         console.log('Redis not available, cannot store offline message');
@@ -542,7 +542,7 @@ export class EnhancedSocketServer {
   }
 
   private async storeMessageForOfflineMembers(teamId: string, message: any): Promise<void> {
-    """Store message for team members who are currently offline"""
+    // Store message for team members who are currently offline
     try {
       // Get online users in team room
       const teamRoom = `team:${teamId}`;
@@ -605,11 +605,12 @@ export function getSocketServer(): EnhancedSocketServer | null {
   return socketServer;
 }
 
-export function initializeSocketServer(httpServer: any): Promise<EnhancedSocketServer> {
+export async function initializeSocketServer(httpServer: any): Promise<EnhancedSocketServer> {
   if (!socketServer) {
     socketServer = new EnhancedSocketServer(httpServer);
   }
-  return socketServer.initialize();
+  await socketServer.initialize();
+  return socketServer;
 }
 
 export default EnhancedSocketServer;

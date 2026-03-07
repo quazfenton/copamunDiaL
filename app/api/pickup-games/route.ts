@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
 import { calculateDistance } from '@/lib/utils';
+import { withCSRF } from '@/lib/security';
 
 const createPickupGameSchema = z.object({
   location: z.string(),

@@ -179,7 +179,7 @@ export async function createTournamentBracket(
     select: { id: true, name: true },
   })
 
-  const teamNames = new Map(teams.map((t) => [t.id, t.name]))
+  const teamNames = new Map<string, string>(teams.map((t) => [t.id, t.name] as [string, string]))
 
   // Generate bracket based on type
   let matches: BracketMatch[] = []
@@ -550,9 +550,12 @@ export async function getTournamentStandings(
   })
 
   // Sort by points, then goal difference
-  return Array.from(standings.values()).sort((a, b) => {
+  return Array.from(standings.values()).map((team) => ({
+    ...team,
+    goalDifference: team.goalsFor - team.goalsAgainst,
+  })).sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points
-    return (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst)
+    return b.goalDifference - a.goalDifference
   })
 }
 

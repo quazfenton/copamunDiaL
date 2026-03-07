@@ -6,6 +6,7 @@ import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
 import { Server as ServerIO } from "socket.io";
 import { Prisma } from '@prisma/client';
+import { withCSRF } from '@/lib/security';
 
 const updateMatchSchema = z.object({
   homeScore: z.number().int().min(0).optional(),

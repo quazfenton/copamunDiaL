@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { handleError } from '@/lib/error-handler'
 import { getTournamentBracket, getTournamentStandings, BracketType } from '@/lib/tournament-bracket'
+import { withCSRF } from '@/lib/security'
 
 const updateTournamentSchema = z.object({
   name: z.string().min(1).max(100).optional(),

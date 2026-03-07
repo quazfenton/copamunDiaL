@@ -4,9 +4,10 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { successResponse, errorResponse, handleZodError, handleDatabaseError } from '@/lib/api-response'
-import { createAuditLog } from '@/lib/audit-log'
+import { createAuditLog, AuditEventType } from '@/lib/audit-log'
 import { InputSanitizer } from '@/lib/sanitizer'
 import { rateLimitMiddleware, RateLimitPresets } from '@/lib/rate-limit'
+import { withCSRF } from '@/lib/security'
 
 // Schemas with proper validation
 const createPlayerSchema = z.object({
@@ -246,7 +247,7 @@ async function POSTHandler(request: NextRequest) {
     })
 
     // Create audit log
-    await createAuditLog('PLAYER_PROFILE_UPDATED', {
+    await createAuditLog(AuditEventType.PLAYER_PROFILE_UPDATED, {
       userId: session.user.id,
       userEmail: session.user.email || undefined,
       metadata: {

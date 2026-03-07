@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { handleError } from '@/lib/error-handler'
+import { withCSRF } from '@/lib/security'
 
 /**
  * DELETE /api/notifications/[id]
