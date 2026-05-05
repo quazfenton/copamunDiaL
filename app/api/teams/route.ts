@@ -3,21 +3,16 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { createTeamSchema } from '@/lib/schemas'
-
-const updateTeamSchema = createTeamSchema.partial()
-
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
-import { z } from 'zod'
-import { handleError } from '@/lib/error-handler' // Import handleError
+import { successResponse, errorResponse, handleZodError, handleDatabaseError } from '@/lib/api-response'
+import { createAuditLog, AuditEventType } from '@/lib/audit-log'
+import { InputSanitizer } from '@/lib/sanitizer'
+import { rateLimitMiddleware, RateLimitPresets } from '@/lib/rate-limit'
+import { withCSRF } from '@/lib/security'
 
 const createTeamSchema = z.object({
-  name: z.string().min(1),
-  bio: z.string().optional(),
-  location: z.string().optional(),
+  name: z.string().min(1).max(100),
+  bio: z.string().max(500).optional(),
+  location: z.string().max(100).optional(),
   isPrivate: z.boolean().default(false),
   formation: z.string().default('4-4-2')
 })
@@ -26,20 +21,27 @@ const updateTeamSchema = createTeamSchema.partial()
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const { searchParams } = new URL(request.url)
-    const search = searchParams.get('search')
-    const location = searchParams.get('location')
+    const search = searchParams.get('search') ? InputSanitizer.sanitizeSearchQuery(searchParams.get('search')!) : null
+    const location = searchParams.get('location') ? InputSanitizer.sanitizeText(searchParams.get('location')!) : null
     const userTeamsOnly = searchParams.get('userTeamsOnly') === 'true'
-    const take = parseInt(searchParams.get('take') || '10') // For pagination
-    const skip = parseInt(searchParams.get('skip') || '0') // For pagination
+    const take = parseInt(searchParams.get('take') || '10')
+    const skip = parseInt(searchParams.get('skip') || '0')
 
-    if (isNaN(take) || take <= 0 || isNaN(skip) || skip < 0) {
-      return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400 });
+    // Validate pagination
+    if (isNaN(take) || take <= 0 || take > 100 || isNaN(skip) || skip < 0) {
+      return errorResponse('INVALID_PARAMS', 'Invalid pagination parameters (take: 1-100, skip: >= 0)', 400);
     }
 
     let where: any = {}
@@ -112,8 +114,8 @@ export async function GET(request: NextRequest) {
       skip
     })
 
-    const formattedTeams = teams.map(team => {
-      const captainIds = new Set(team.captains.map(c => c.id)); // Optimize captain lookup
+    const formattedTeams = teams.map((team: any) => {
+      const captainIds = new Set(team.captains.map((c: any) => c.id));
       return ({
         id: team.id,
         name: team.name,
@@ -131,8 +133,8 @@ export async function GET(request: NextRequest) {
         updatedAt: team.updatedAt.toISOString(),
         captains: Array.from(captainIds),
         players: team.members
-          .filter(m => !m.isReserve)
-          .map(m => ({
+          .filter((m: any) => !m.isReserve)
+          .map((m: any) => ({
             ...m.user,
             stats: {
               matches: m.user.matches,
@@ -140,11 +142,11 @@ export async function GET(request: NextRequest) {
               assists: m.user.assists,
               rating: m.user.rating || 0
             },
-            isCaptain: captainIds.has(m.user.id) // Optimized lookup
+            isCaptain: captainIds.has(m.user.id)
           })),
         reserves: team.members
-          .filter(m => m.isReserve)
-          .map(m => ({
+          .filter((m: any) => m.isReserve)
+          .map((m: any) => ({
             ...m.user,
             stats: {
               matches: m.user.matches,
@@ -152,22 +154,33 @@ export async function GET(request: NextRequest) {
               assists: m.user.assists,
               rating: m.user.rating || 0
             },
-            isCaptain: captainIds.has(m.user.id) // Optimized lookup
+            isCaptain: captainIds.has(m.user.id)
           }))
       })
     })
 
-    return NextResponse.json(formattedTeams)
+    return successResponse(formattedTeams)
   } catch (error) {
-    return handleError(error) // Use handleError
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('GET /api/teams error:', error)
+    return handleDatabaseError(error)
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
+    // CSRF validation (automatic via wrapper)
+    // Rate limiting
+    const rateLimitResult = await rateLimitMiddleware(request, RateLimitPresets.api);
+    if (rateLimitResult.limited && rateLimitResult.response) {
+      return rateLimitResult.response;
+    }
+
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
     }
 
     const body = await request.json()
@@ -175,7 +188,11 @@ export async function POST(request: NextRequest) {
 
     const team = await prisma.team.create({
       data: {
-        ...validatedData,
+        name: InputSanitizer.sanitizeText(validatedData.name),
+        bio: validatedData.bio ? InputSanitizer.sanitizeRichText(validatedData.bio, { maxLength: 500 }) : null,
+        location: validatedData.location ? InputSanitizer.sanitizeText(validatedData.location) : null,
+        formation: validatedData.formation,
+        isPrivate: validatedData.isPrivate,
         createdBy: session.user.id,
         captains: {
           connect: { id: session.user.id }
@@ -207,9 +224,6 @@ export async function POST(request: NextRequest) {
                 preferredPositions: true,
                 image: true,
                 bio: true,
-                email: true,
-                phone: true,
-                location: true,
                 rating: true,
                 matches: true,
                 goals: true,
@@ -223,6 +237,17 @@ export async function POST(request: NextRequest) {
         }
       }
     })
+
+    // Create audit log
+    await createAuditLog(AuditEventType.TEAM_CREATED, {
+      userId: session.user.id,
+      userEmail: session.user.email || undefined,
+      resourceId: team.id,
+      metadata: {
+        teamName: team.name,
+        isPrivate: team.isPrivate,
+      },
+    });
 
     const formattedTeam = {
       id: team.id,
@@ -239,10 +264,10 @@ export async function POST(request: NextRequest) {
       createdBy: team.createdBy,
       createdAt: team.createdAt.toISOString(),
       updatedAt: team.updatedAt.toISOString(),
-      captains: team.captains.map(c => c.id),
+      captains: team.captains.map((c: any) => c.id),
       players: team.members
-        .filter(m => !m.isReserve)
-        .map(m => ({
+        .filter((m: any) => !m.isReserve)
+        .map((m: any) => ({
           ...m.user,
           stats: {
             matches: m.user.matches,
@@ -251,11 +276,11 @@ export async function POST(request: NextRequest) {
             rating: m.user.rating || 0
           },
           teams: [team.id],
-          isCaptain: team.captains.some(c => c.id === m.user.id)
+          isCaptain: team.captains.some((c: any) => c.id === m.user.id)
         })),
       reserves: team.members
-        .filter(m => m.isReserve)
-        .map(m => ({
+        .filter((m: any) => m.isReserve)
+        .map((m: any) => ({
           ...m.user,
           stats: {
             matches: m.user.matches,
@@ -264,12 +289,19 @@ export async function POST(request: NextRequest) {
             rating: m.user.rating || 0
           },
           teams: [team.id],
-          isCaptain: team.captains.some(c => c.id === m.user.id)
+          isCaptain: team.captains.some((c: any) => c.id === m.user.id)
         }))
     }
 
-    return NextResponse.json(formattedTeam)
+    return successResponse(formattedTeam, 201)
   } catch (error) {
-    return handleError(error)
+    if (error instanceof z.ZodError) {
+      return handleZodError(error)
+    }
+    console.error('POST /api/teams error:', error)
+    return handleDatabaseError(error)
   }
 }
+
+// Wrap POST with CSRF protection
+export const POST = withCSRF(postHandler)

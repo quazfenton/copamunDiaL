@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
 import { calculateDistance } from '@/lib/utils';
-import { MatchStatus } from '@prisma/client'; // Import MatchStatus enum
+import { withCSRF } from '@/lib/csrf-middleware';
 
 const createMatchSchema = z.object({
   homeTeamId: z.string(),
@@ -44,8 +44,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (statusParam) {
-      // Validate status against MatchStatus enum
-      if (!Object.values(MatchStatus).includes(statusParam as MatchStatus)) {
+      // Validate status against valid match statuses
+      const validStatuses = ['SCHEDULED', 'LIVE', 'COMPLETED', 'CANCELLED'];
+      if (!validStatuses.includes(statusParam)) {
         return NextResponse.json({ error: 'Invalid match status' }, { status: 400 });
       }
       where.status = statusParam;
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
       where.ageGroup = ageGroup;
     }
 
-    let matches = await prisma.match.findMany({
+    const matchesResult = await prisma.match.findMany({
       where,
       include: {
         homeTeam: {
@@ -109,9 +110,11 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    let matches = matchesResult;
+
     // Apply radius filtering if coordinates and radius are provided
     if (!isNaN(userLatitude) && !isNaN(userLongitude) && !isNaN(radius)) {
-      matches = matches.filter(match => {
+      matches = matchesResult.filter((match: any) => {
         if (match.latitude && match.longitude) {
           const distance = calculateDistance(userLatitude, userLongitude, match.latitude, match.longitude);
           return distance <= radius;
@@ -126,7 +129,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -162,8 +165,15 @@ export async function POST(request: NextRequest) {
 
     const match = await prisma.match.create({
       data: {
-        ...validatedData,
-        date: validatedData.date, // date is already a Date object due to z.coerce.date()
+        homeTeamId: validatedData.homeTeamId,
+        awayTeamId: validatedData.awayTeamId,
+        date: validatedData.date,
+        location: validatedData.location,
+        latitude: validatedData.latitude,
+        longitude: validatedData.longitude,
+        sport: validatedData.sport,
+        ageGroup: validatedData.ageGroup,
+        leagueId: validatedData.leagueId,
       },
       include: {
         homeTeam: {
@@ -188,3 +198,6 @@ export async function POST(request: NextRequest) {
     return handleError(error);
   }
 }
+
+// Wrap POST with CSRF protection
+export const POST = withCSRF(postHandler)

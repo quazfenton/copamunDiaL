@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "./db"
+import { generateCSRFToken } from "./security"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -55,22 +56,29 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt"
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id
+        // Generate new CSRF token on login
+        token.csrfToken = generateCSRFToken()
+      }
+      // Regenerate CSRF token on session refresh
+      if (trigger === 'update' || !token.csrfToken) {
+        token.csrfToken = generateCSRFToken()
       }
       return token
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id as string
+        // Include CSRF token in session for client access
+        session.user.csrfToken = token.csrfToken as string
       }
       return session
     }
   },
   pages: {
     signIn: "/auth/signin",
-    signUp: "/auth/signup",
   }
 }
 

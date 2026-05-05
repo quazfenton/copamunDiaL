@@ -1,6 +1,12 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-export default function FormationSelector({ formations, selectedFormation, onSelectFormation }) {
+interface FormationSelectorProps {
+  formations: string[];
+  selectedFormation: string;
+  onSelectFormation: (formation: string) => void;
+}
+
+export default function FormationSelector({ formations, selectedFormation, onSelectFormation }: FormationSelectorProps) {
   return (
     <div className="mb-4">
       <label htmlFor="formation-select" className="block text-sm font-medium text-gray-300 mb-2">

@@ -183,7 +183,7 @@ export default function TeamInviteManager({ teamId }: TeamInviteManagerProps) {
                   </Avatar>
                   <div>
                     <p className="font-medium">
-                      {invite.from.name || invite.from.email} invited you to join{" "}
+                      {invite.from.name || "A user"} invited you to join{" "}
                       <span className="font-semibold">{invite.team.name}</span>
                     </p>
                     {invite.message && <p className="text-sm text-gray-500">"{invite.message}"</p>}
@@ -221,7 +221,7 @@ export default function TeamInviteManager({ teamId }: TeamInviteManagerProps) {
                   </Avatar>
                   <div>
                     <p className="font-medium">
-                      You invited {invite.to.name || invite.to.email} to join{" "}
+                      You invited {invite.to.name || "a user"} to join{" "}
                       <span className="font-semibold">{invite.team.name}</span>
                     </p>
                     {invite.message && <p className="text-sm text-gray-500">"{invite.message}"</p>}

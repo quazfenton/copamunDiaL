@@ -4,10 +4,12 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { updateTeamSchema } from '@/lib/schemas'
+import { handleError } from '@/lib/error-handler'
+import { withCSRF } from '@/lib/security'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -15,8 +17,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const team = await prisma.team.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         creator: {
           select: {
@@ -81,10 +84,10 @@ export async function GET(
       createdBy: team.createdBy,
       createdAt: team.createdAt.toISOString(),
       updatedAt: team.updatedAt.toISOString(),
-      captains: team.captains.map(c => c.id),
+      captains: team.captains.map((c: any) => c.id),
       players: team.members
-        .filter(m => !m.isReserve)
-        .map(m => ({
+        .filter((m: any) => !m.isReserve)
+        .map((m: any) => ({
           ...m.user,
           stats: {
             matches: m.user.matches,
@@ -93,11 +96,11 @@ export async function GET(
             rating: m.user.rating || 0
           },
           teams: [team.id],
-          isCaptain: team.captains.some(c => c.id === m.user.id)
+          isCaptain: team.captains.some((c: any) => c.id === m.user.id)
         })),
       reserves: team.members
-        .filter(m => m.isReserve)
-        .map(m => ({
+        .filter((m: any) => m.isReserve)
+        .map((m: any) => ({
           ...m.user,
           stats: {
             matches: m.user.matches,
@@ -106,7 +109,7 @@ export async function GET(
             rating: m.user.rating || 0
           },
           teams: [team.id],
-          isCaptain: team.captains.some(c => c.id === m.user.id)
+          isCaptain: team.captains.some((c: any) => c.id === m.user.id)
         }))
     }
 
@@ -116,9 +119,9 @@ export async function GET(
   }
 }
 
-export async function PATCH(
+async function PATCHHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -126,9 +129,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     // Check if user is captain or creator of the team
     const team = await prisma.team.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         captains: true
       }
@@ -138,7 +142,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     }
 
-    const isCaptain = team.captains.some(c => c.id === session.user.id)
+    const isCaptain = team.captains.some((c: any) => c.id === session.user.id)
     const isCreator = team.createdBy === session.user.id
 
     if (!isCaptain && !isCreator) {
@@ -149,7 +153,7 @@ export async function PATCH(
     const validatedData = updateTeamSchema.parse(body)
 
     const updatedTeam = await prisma.team.update({
-      where: { id: params.id },
+      where: { id },
       data: validatedData,
       include: {
         captains: {
@@ -188,7 +192,7 @@ export async function PATCH(
       }
     })
 
-    const captainIds = new Set(updatedTeam.captains.map(c => c.id)); // Optimize captain lookup
+    const captainIds = new Set(updatedTeam.captains.map((c: any) => c.id)); // Optimize captain lookup
     const formattedTeam = {
       id: updatedTeam.id,
       name: updatedTeam.name,
@@ -206,8 +210,8 @@ export async function PATCH(
       updatedAt: updatedTeam.updatedAt.toISOString(),
       captains: Array.from(captainIds),
       players: updatedTeam.members
-        .filter(m => !m.isReserve)
-        .map(m => ({
+        .filter((m: any) => !m.isReserve)
+        .map((m: any) => ({
           ...m.user,
           stats: {
             matches: m.user.matches,
@@ -219,8 +223,8 @@ export async function PATCH(
           isCaptain: captainIds.has(m.user.id) // Optimized lookup
         })),
       reserves: updatedTeam.members
-        .filter(m => m.isReserve)
-        .map(m => ({
+        .filter((m: any) => m.isReserve)
+        .map((m: any) => ({
           ...m.user,
           stats: {
             matches: m.user.matches,
@@ -239,9 +243,9 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+async function DELETEHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -249,9 +253,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     // Check if user is the creator of the team
     const team = await prisma.team.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!team) {
@@ -263,7 +268,7 @@ export async function DELETE(
     }
 
     await prisma.team.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({ message: 'Team deleted successfully' })
@@ -271,3 +276,7 @@ export async function DELETE(
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const DELETE = withCSRF(DELETEHandler)
+export const PATCH = withCSRF(PATCHHandler)

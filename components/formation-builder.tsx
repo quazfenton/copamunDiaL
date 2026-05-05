@@ -95,7 +95,7 @@ export default function FormationBuilder({
               reserves={[]} // Reserves for the builder
               onPlayerMove={handlePlayerMove}
               onPlayerClick={() => {}} // No-op for builder
-              currentUserId={null}
+              currentUserId={undefined}
               teamCaptains={[]}
             />
           </div>

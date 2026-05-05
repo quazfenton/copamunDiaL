@@ -96,10 +96,12 @@ export interface MatchData {
   homeTeam: TeamData;
   awayTeam: TeamData;
   date: string;
+  time?: string;
   location: string;
   status: MatchStatus;
   homeScore?: number;
   awayScore?: number;
+  score?: { home: number; away: number };
   participants?: MatchParticipant[];
   events?: MatchEvent[];
   createdAt?: string;
@@ -141,6 +143,7 @@ export interface PickupGameData {
   id: string;
   location: string;
   date: string;
+  time?: string;
   sport: string;
   playersNeeded: number;
   playersJoined: number;
@@ -237,3 +240,9 @@ export enum EventType {
   MATCH_END = 'MATCH_END',
   HALF_TIME = 'HALF_TIME'
 }
+
+// Tournament bracket types
+export type BracketType = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'ROUND_ROBIN' | 'SWISS'
+
+// Re-export AuditEventType for convenience
+export { AuditEventType } from './audit-log'

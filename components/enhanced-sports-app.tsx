@@ -27,7 +27,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Loader2, MessageCircle, Users, Settings, LogOut, Wifi, WifiOff } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
-import { useSocket, useTeamSocket, useNotifications, useUserPresence } from "@/hooks/use-socket"
+import { useSocket, useNotifications, useUserPresence } from "@/hooks/use-socket"
 import { Player, TeamData, Notification } from "@/lib/types"
 
 const sports = ["Soccer", "Basketball", "American Football", "Baseball"]
@@ -67,9 +67,20 @@ function SportsManagementAppContent() {
   // Real-time hooks
   const { socket, isConnected } = useSocket()
   const { notifications } = useNotifications()
-  const { onlineUsers, isUserOnline } = useUserPresence()
+  const { onlineUsers, setOnline, setOffline } = useUserPresence()
 
   const currentUserId = session?.user?.id
+
+  // Set user as online when component mounts and offline when unmounts
+  useEffect(() => {
+    if (session?.user?.id) {
+      setOnline();
+    }
+
+    return () => {
+      setOffline();
+    };
+  }, [session?.user?.id]);
 
   // Load initial data
   useEffect(() => {
@@ -83,11 +94,11 @@ function SportsManagementAppContent() {
           apiClient.getTeams({ userTeamsOnly: true })
         ])
         
-        setPlayers(playersData)
-        setTeams(teamsData)
+        setPlayers(playersData as any)
+        setTeams(teamsData as any)
         
-        if (teamsData.length > 0) {
-          setSelectedTeam(teamsData[0])
+        if ((teamsData as any)?.length > 0) {
+          setSelectedTeam((teamsData as any)[0])
         }
       } catch (err) {
         setError('Failed to load data')
@@ -132,7 +143,7 @@ function SportsManagementAppContent() {
   }
 
   // Handle notifications
-  const handleNotificationAccept = async (notificationId: string) => {
+  const handleNotificationAccept = async (notificationId: number | string) => {
     try {
       await apiClient.put(`/notifications/${notificationId}`, { 
         status: 'ACCEPTED',
@@ -143,7 +154,7 @@ function SportsManagementAppContent() {
     }
   }
 
-  const handleNotificationDecline = async (notificationId: string) => {
+  const handleNotificationDecline = async (notificationId: number | string) => {
     try {
       await apiClient.put(`/notifications/${notificationId}`, { 
         status: 'DECLINED',
@@ -151,6 +162,16 @@ function SportsManagementAppContent() {
       })
     } catch (error) {
       console.error('Error declining notification:', error)
+    }
+  }
+
+  const handleNotificationDismiss = async (notificationId: number | string) => {
+    try {
+      await apiClient.put(`/notifications/${notificationId}`, { 
+        isRead: true 
+      })
+    } catch (error) {
+      console.error('Error dismissing notification:', error)
     }
   }
 
@@ -301,23 +322,21 @@ function SportsManagementAppContent() {
         <div className="flex">
           {/* Side Menu */}
           <SideMenu
-            isOpen={isMenuOpen}
-            onToggle={() => setIsMenuOpen(!isMenuOpen)}
-            onTeamManagement={() => setIsTeamManagementOpen(true)}
-            onPlayerInvite={() => setIsPlayerInviteOpen(true)}
-            onProfile={() => setIsProfileOpen(true)}
-            onMatchScheduling={() => setIsMatchSchedulingOpen(true)}
-            onMatchFinder={() => setIsMatchFinderOpen(true)}
-            onTeamProfile={() => setIsTeamProfileOpen(true)}
-            onLeagues={() => setIsLeaguesOpen(true)}
-            onCalendar={() => setIsCalendarOpen(true)}
-            onPickupGames={() => setIsPickupGamesOpen(true)}
-            userTeams={teams}
-            currentTeamId={selectedTeam?.id || ''}
-            onTeamChange={(teamId) => {
-              const team = teams.find(t => t.id === teamId)
-              if (team) setSelectedTeam(team)
-            }}
+            onMyTeamClick={() => setIsTeamManagementOpen(true)}
+            onFindMatchClick={() => setIsMatchFinderOpen(true)}
+            onScheduleClick={() => setIsMatchSchedulingOpen(true)}
+            onInvitePlayerClick={() => setIsPlayerInviteOpen(true)}
+            onProfileClick={() => setIsProfileOpen(true)}
+            onTeamProfileClick={() => setIsTeamProfileOpen(true)}
+            onLeaguesClick={() => setIsLeaguesOpen(true)}
+            onCalendarClick={() => setIsCalendarOpen(true)}
+            onPickupGamesClick={() => setIsPickupGamesOpen(true)}
+            onHomeClick={() => {/* Navigate to home */}}
+            onNotificationsClick={() => {/* Show notifications */}}
+            unreadNotificationsCount={notifications.filter((n: any) => !n.isRead).length}
+            isCaptain={session?.user?.id && selectedTeam?.captains ? selectedTeam.captains.includes(session.user.id) : false}
+            onBuildFormationClick={() => {/* Open formation builder */}}
+            onFriendsClick={() => {/* Open friends */}}
           />
 
           {/* Main Field Area */}
@@ -328,12 +347,12 @@ function SportsManagementAppContent() {
                 <SportSelector
                   sports={sports}
                   selectedSport={selectedSport}
-                  onSportChange={handleSportChange}
+                  onSelectSport={handleSportChange}
                 />
                 <FormationSelector
                   formations={formations[selectedSport as keyof typeof formations]}
                   selectedFormation={selectedFormation}
-                  onFormationChange={handleFormationChange}
+                  onSelectFormation={handleFormationChange}
                 />
               </div>
 
@@ -373,23 +392,20 @@ function SportsManagementAppContent() {
           notifications={notifications}
           onAccept={handleNotificationAccept}
           onDecline={handleNotificationDecline}
+          onDismiss={handleNotificationDismiss}
         />
 
         {/* Dialogs */}
         <TeamManagement
           isOpen={isTeamManagementOpen}
           onClose={() => setIsTeamManagementOpen(false)}
-          teams={teams}
+          currentTeam={selectedTeam || undefined}
           players={players}
-          currentUserId={currentUserId || ''}
         />
 
         <PlayerInvite
           isOpen={isPlayerInviteOpen}
           onClose={() => setIsPlayerInviteOpen(false)}
-          availablePlayers={players}
-          currentTeam={selectedTeam}
-          currentUserId={currentUserId || ''}
         />
 
         <Profile
@@ -402,50 +418,56 @@ function SportsManagementAppContent() {
         <MatchScheduling
           isOpen={isMatchSchedulingOpen}
           onClose={() => setIsMatchSchedulingOpen(false)}
-          teams={teams}
-          currentTeam={selectedTeam}
         />
 
         <MatchFinder
           isOpen={isMatchFinderOpen}
           onClose={() => setIsMatchFinderOpen(false)}
-          teams={teams}
-          currentTeam={selectedTeam}
+          currentTeam={selectedTeam || undefined}
         />
 
-        <TeamProfile
-          isOpen={isTeamProfileOpen}
-          onClose={() => setIsTeamProfileOpen(false)}
-          team={selectedTeam}
-          currentUserId={currentUserId || ''}
-        />
+        {isTeamProfileOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-auto">
+              <button 
+                onClick={() => setIsTeamProfileOpen(false)}
+                className="float-right text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+              <TeamProfile />
+            </div>
+          </div>
+        )}
 
-        <LeaguesManager
-          isOpen={isLeaguesOpen}
-          onClose={() => setIsLeaguesOpen(false)}
-          teams={teams}
-          currentUserId={currentUserId || ''}
-        />
+        {isLeaguesOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-auto">
+              <button 
+                onClick={() => setIsLeaguesOpen(false)}
+                className="float-right text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+              <LeaguesManager />
+            </div>
+          </div>
+        )}
 
         <CalendarView
           isOpen={isCalendarOpen}
           onClose={() => setIsCalendarOpen(false)}
-          teams={teams}
         />
 
         <PickupGames
           isOpen={isPickupGamesOpen}
           onClose={() => setIsPickupGamesOpen(false)}
-          currentUserId={currentUserId || ''}
         />
 
         {/* Team Chat */}
-        {selectedTeam && (
+        {selectedTeam && isTeamChatOpen && (
           <TeamChat
             teamId={selectedTeam.id}
-            currentUserId={currentUserId || ''}
-            isOpen={isTeamChatOpen}
-            onClose={() => setIsTeamChatOpen(false)}
           />
         )}
 

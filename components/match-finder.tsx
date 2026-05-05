@@ -65,7 +65,7 @@ export default function MatchFinder({ isOpen, onClose, currentTeam }: MatchFinde
       ]);
       setAvailableMatches(matchesRes);
       setTotalPages(Math.ceil(matchesRes.length / pageSize));
-      setMatchRequests(requestsRes);
+      setMatchRequests(requestsRes as any);
     } catch (err: any) {
       setError(err.message || "Failed to fetch match data.");
       toast({
@@ -104,6 +104,12 @@ export default function MatchFinder({ isOpen, onClose, currentTeam }: MatchFinde
         proposedLocation: "", // Placeholder, ideally from a location picker
         message: `Match request from ${currentTeam.name}`,
       });
+      toast({
+        title: "Success",
+        description: "Match request sent successfully!",
+      });
+      fetchMatchData(); // Refresh data
+    } catch (err: any) {
       toast({
         title: "Error",
         description: err.message || "Failed to send match request.",

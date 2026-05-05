@@ -107,9 +107,9 @@ export default function CalendarView({ isOpen, onClose }: CalendarViewProps) {
                       key={event.id}
                       title={`${event.homeTeam.name} vs ${event.awayTeam.name}`}
                       date={format(event.dateObj, "EEEE, MMMM d, yyyy")}
-                      time={event.time}
+                      time={format(event.dateObj, "HH:mm")}
                       location={event.location}
-                      type={event.status === "completed" ? "completed" : "scheduled"}
+                      type={event.status === "COMPLETED" ? "completed" : "scheduled"}
                     />
                   ))}
                 </div>
@@ -135,14 +135,13 @@ export default function CalendarView({ isOpen, onClose }: CalendarViewProps) {
               {selectedDateEvents.length > 0 ? (
                 <div className="space-y-4">
                   {selectedDateEvents.map(event => (
-                    <DayEventCard 
+                    <DayEventCard
                       key={event.id}
                       homeTeam={event.homeTeam}
                       awayTeam={event.awayTeam}
-                      time={event.time}
+                      time={format(event.dateObj, "HH:mm")}
                       location={event.location}
-                      status={event.status}
-                      score={event.score}
+                      status={event.status === "COMPLETED" ? "COMPLETED" : event.status === "CANCELLED" ? "CANCELLED" : "SCHEDULED"}
                     />
                   ))}
                 </div>
@@ -220,7 +219,7 @@ interface DayEventCardProps {
   awayTeam: any
   time: string
   location: string
-  status: "scheduled" | "completed" | "cancelled"
+  status: "SCHEDULED" | "COMPLETED" | "CANCELLED"
   score?: {
     home: number
     away: number
@@ -228,14 +227,14 @@ interface DayEventCardProps {
 }
 
 function DayEventCard({ homeTeam, awayTeam, time, location, status, score }: DayEventCardProps) {
-  const badgeColor = 
-    status === "scheduled" ? "bg-blue-900/30 border-blue-700 text-blue-400" : 
-    status === "completed" ? "bg-green-900/30 border-green-700 text-green-400" : 
+  const badgeColor =
+    status === "SCHEDULED" ? "bg-blue-900/30 border-blue-700 text-blue-400" :
+    status === "COMPLETED" ? "bg-green-900/30 border-green-700 text-green-400" :
     "bg-red-900/30 border-red-700 text-red-400"
-  
-  const badgeText = 
-    status === "scheduled" ? "Scheduled" : 
-    status === "completed" ? "Completed" : 
+
+  const badgeText =
+    status === "SCHEDULED" ? "Scheduled" :
+    status === "COMPLETED" ? "Completed" :
     "Cancelled"
 
   return (
@@ -256,7 +255,7 @@ function DayEventCard({ homeTeam, awayTeam, time, location, status, score }: Day
           <p className="mt-2 font-semibold">{homeTeam.name}</p>
         </div>
         
-        {status === "completed" && score ? (
+        {status === "COMPLETED" && score ? (
           <div className="mx-6 text-center">
             <div className="text-3xl font-bold">
               {score.home} - {score.away}
@@ -291,7 +290,7 @@ function DayEventCard({ homeTeam, awayTeam, time, location, status, score }: Day
         </div>
       </div>
       
-      {status === "scheduled" && (
+      {status === "SCHEDULED" && (
         <div className="flex justify-end mt-4">
           <Button size="sm">
             <Trophy className="h-4 w-4 mr-2" />

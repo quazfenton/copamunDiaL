@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
-import { InviteStatus } from '@prisma/client'; // Import InviteStatus enum
+import { withCSRF } from '@/lib/security';
 
 const createTeamInviteSchema = z.object({
   toUserId: z.string().cuid(), // Ensure toUserId is a valid CUID
@@ -12,9 +12,9 @@ const createTeamInviteSchema = z.object({
 });
 
 // Send a team invite
-export async function POST(
+async function POSTHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -22,7 +22,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const teamId = params.id;
+    const { id: teamId } = await params;
     const body = await request.json();
     const validatedData = createTeamInviteSchema.parse(body);
 
@@ -35,19 +35,15 @@ export async function POST(
     const team = await prisma.team.findUnique({
       where: { id: teamId },
       include: {
-        captains: {
-          where: { id: session.user.id }
-        },
-        creator: {
-          where: { id: session.user.id }
-        },
+        captains: true,
+        creator: true,
         members: { // Include members to check if already a member
           where: { userId: validatedData.toUserId }
         }
       }
     });
 
-    if (!team || (team.captains.length === 0 && team.creator?.id !== session.user.id)) {
+    if (!team || (!team.captains.some((c: any) => c.id === session.user.id) && team.creator?.id !== session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized to send invites for this team' }, { status: 403 });
     }
 
@@ -71,7 +67,7 @@ export async function POST(
         teamId: teamId,
         toId: validatedData.toUserId,
         status: {
-          in: [InviteStatus.PENDING, InviteStatus.ACCEPTED] // Use enum
+          in: ['PENDING', 'ACCEPTED'] // Use string literals
         }
       }
     });
@@ -86,7 +82,7 @@ export async function POST(
         fromId: session.user.id,
         toId: validatedData.toUserId,
         message: validatedData.message,
-        status: InviteStatus.PENDING, // Use enum
+        status: 'PENDING', // Use string literal
       },
     });
 
@@ -99,7 +95,7 @@ export async function POST(
 // Get team invites (for a specific team, or for the current user)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -107,7 +103,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const teamId = params.id;
+    const { id: teamId } = await params;
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type'); // 'sent' or 'received'
 
@@ -115,13 +111,13 @@ export async function GET(
     const team = await prisma.team.findUnique({
       where: { id: teamId },
       include: {
-        captains: { where: { id: session.user.id } },
+        captains: true,
         members: { where: { userId: session.user.id } },
       },
     });
 
-    const isTeamMember = team?.members.length > 0;
-    const isTeamCaptain = team?.captains.length > 0;
+    const isTeamMember = team?.members && team.members.length > 0;
+    const isTeamCaptain = team?.captains?.some((c: any) => c.id === session.user.id) ?? false;
     const isTeamCreator = team?.createdBy === session.user.id;
 
     if (!isTeamMember && !isTeamCaptain && !isTeamCreator) {
@@ -189,9 +185,9 @@ export async function GET(
 }
 
 // Update team invite status (accept/decline)
-export async function PATCH(
+async function PATCHHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -199,10 +195,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const inviteId = params.id; // This 'id' param is actually the inviteId
-    const { status } = await request.json();
+    const { id: teamId } = await params;
+    const { inviteId, status } = await request.json();
 
-    if (!Object.values(InviteStatus).includes(status)) {
+    if (!inviteId || !status) {
+      return NextResponse.json({ error: 'Missing inviteId or status' }, { status: 400 });
+    }
+
+    if (!['PENDING', 'ACCEPTED', 'DECLINED'].includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
@@ -211,17 +211,17 @@ export async function PATCH(
       include: { team: true, to: true },
     });
 
-    if (!existingInvite || existingInvite.toId !== session.user.id) {
+    if (!existingInvite || existingInvite.toId !== session.user.id || existingInvite.teamId !== teamId) {
       return NextResponse.json({ error: 'Invite not found or not authorized' }, { status: 404 });
     }
 
     const updatedInvite = await prisma.teamInvite.update({
       where: { id: inviteId },
-      data: { status: status as InviteStatus },
+      data: { status: status as any },
     });
 
     // If accepted, add user to team members
-    if (status === InviteStatus.ACCEPTED) {
+    if (status === 'ACCEPTED') {
       await prisma.teamMember.create({
         data: {
           teamId: existingInvite.teamId,
@@ -237,9 +237,9 @@ export async function PATCH(
 }
 
 // Delete a team invite
-export async function DELETE(
+async function DELETEHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -247,14 +247,27 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const inviteId = params.id; // This 'id' param is actually the inviteId
+    const { id: teamId } = await params; // This 'id' param is the teamId
+    const { inviteId } = await request.json(); // Get inviteId from request body
+
+    if (!inviteId) {
+      return NextResponse.json({ error: 'Missing inviteId' }, { status: 400 });
+    }
 
     const existingInvite = await prisma.teamInvite.findUnique({
       where: { id: inviteId },
-      include: { team: true, from: true, to: true },
+      include: { 
+        team: {
+          include: {
+            captains: true
+          }
+        }, 
+        from: true, 
+        to: true 
+      },
     });
 
-    if (!existingInvite) {
+    if (!existingInvite || existingInvite.teamId !== teamId) {
       return NextResponse.json({ error: 'Invite not found' }, { status: 404 });
     }
 
@@ -262,7 +275,7 @@ export async function DELETE(
     const isAuthorized = existingInvite.fromId === session.user.id ||
                          existingInvite.toId === session.user.id ||
                          existingInvite.team.createdBy === session.user.id ||
-                         existingInvite.team.captains.some(captain => captain.id === session.user.id);
+                         existingInvite.team.captains.some((captain: any) => captain.id === session.user.id);
 
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized to delete this invite' }, { status: 403 });
@@ -277,3 +290,8 @@ export async function DELETE(
     return handleError(error);
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)
+export const DELETE = withCSRF(DELETEHandler)
+export const PATCH = withCSRF(PATCHHandler)

@@ -1,0 +1,15 @@
+﻿name: 1. Matrix Tests & Coverage
+on: [push, pull_request]
+jobs:
+  node-matrix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: ${{ matrix.node-version }}, cache: 'npm' }
+      - run: npm ci --prefer-offline
+      - run: npm test --if-present

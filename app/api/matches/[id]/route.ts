@@ -5,6 +5,8 @@ import { prisma } from '@/lib/db';
 import { handleError } from '@/lib/error-handler';
 import { z } from 'zod';
 import { Server as ServerIO } from "socket.io";
+import { Prisma } from '@prisma/client';
+import { withCSRF } from '@/lib/security';
 
 const updateMatchSchema = z.object({
   homeScore: z.number().int().min(0).optional(),
@@ -12,9 +14,9 @@ const updateMatchSchema = z.object({
   status: z.enum(["SCHEDULED", "LIVE", "COMPLETED", "CANCELLED"]).optional(),
 });
 
-export async function PATCH(
+async function PATCHHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -22,7 +24,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const matchId = params.id;
+    const { id: matchId } = await params;
     const body = await request.json();
     const validatedData = updateMatchSchema.parse(body);
 
@@ -78,7 +80,7 @@ export async function PATCH(
       const homeScore = validatedData.homeScore;
       const awayScore = validatedData.awayScore;
 
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         if (homeScore > awayScore) {
           // Home team wins
           await tx.team.update({
@@ -157,9 +159,9 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+async function DELETEHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -167,7 +169,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const matchId = params.id;
+    const { id: matchId } = await params;
 
     const existingMatch = await prisma.match.findUnique({
       where: { id: matchId },
@@ -209,3 +211,7 @@ export async function DELETE(
     return handleError(error);
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const DELETE = withCSRF(DELETEHandler)
+export const PATCH = withCSRF(PATCHHandler)

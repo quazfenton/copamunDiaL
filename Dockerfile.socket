@@ -1,0 +1,30 @@
+# Dockerfile for Socket.IO Server
+FROM node:20-alpine
+
+RUN apk add --no-cache wget
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install production dependencies only
+RUN npm ci --only=production
+
+# Copy socket server
+COPY server/socket-server.js ./server/
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S socketuser -u 1001
+USER socketuser
+
+ENV NODE_ENV=production
+ENV SOCKET_PORT=3001
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+
+CMD ["node", "server/socket-server.js"]

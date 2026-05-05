@@ -7,8 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type PlayerRecommendation = {
+  type: "player";
   id: string;
   name?: string | null;
   firstName?: string | null;
@@ -25,6 +27,7 @@ type PlayerRecommendation = {
 };
 
 type TeamRecommendation = {
+  type: "team";
   id: string;
   name: string;
   logo?: string | null;
@@ -37,6 +40,7 @@ type TeamRecommendation = {
 };
 
 type MatchRecommendation = {
+  type: "match";
   id: string;
   date: string;
   location: string;

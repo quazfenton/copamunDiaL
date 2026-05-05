@@ -30,20 +30,20 @@ export default function TeamManagement({
   const [teamPlayers, setTeamPlayers] = useState(currentTeam?.players || [])
   const [searchTerm, setSearchTerm] = useState("")
 
-  const handleRemovePlayer = (playerId: number) => {
-    setTeamPlayers(teamPlayers.filter(player => player.id !== playerId))
+  const handleRemovePlayer = (playerId: string) => {
+    setTeamPlayers(teamPlayers.filter((player: any) => player.id !== playerId))
   }
 
-  const handleMakeCaptain = (playerId: number) => {
+  const handleMakeCaptain = (playerId: string) => {
     setTeamPlayers(
-      teamPlayers.map(player => ({
+      teamPlayers.map((player: any) => ({
         ...player,
         isCaptain: player.id === playerId
       }))
     )
   }
 
-  const filteredPlayers = teamPlayers.filter(player => 
+  const filteredPlayers = teamPlayers.filter((player: any) => 
     player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     player.position.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -77,7 +77,7 @@ export default function TeamManagement({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredPlayers.map(player => (
+              {filteredPlayers.map((player: any) => (
                 <motion.div
                   key={player.id}
                   whileHover={{ scale: 1.02 }}

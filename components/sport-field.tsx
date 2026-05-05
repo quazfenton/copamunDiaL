@@ -19,8 +19,8 @@ interface SportFieldProps {
   reserves?: Player[];
   onPlayerMove?: (result: any) => void;
   onPlayerClick?: (player: Player) => void;
-  currentUserId?: number;
-  teamCaptains?: number[];
+  currentUserId?: string;
+  teamCaptains?: string[];
 }
 
 interface PositionSlot {
@@ -37,16 +37,16 @@ export function SportField({
   reserves = [],
   onPlayerMove,
   onPlayerClick,
-  currentUserId = 1,
-  teamCaptains = [1]
+  currentUserId = "1",
+  teamCaptains = ["1"]
 }: SportFieldProps) {
   const FieldLayout = getFieldLayout(sport);
 
   // Create position slots for the current formation
-  const positions = formationPositions[sport]?.[formation] || formationPositions.Soccer["4-4-2"];
+  const positions = (formationPositions as any)[sport]?.[formation] || formationPositions.Soccer["4-4-2"];
   
   const [positionSlots, setPositionSlots] = useState<PositionSlot[]>(() => {
-    return positions.map((pos, index) => ({
+    return positions.map((pos: { top: string; left: string }, index: number) => ({
       id: `position-${index}`,
       player: players[index] || undefined,
       position: pos
@@ -113,7 +113,7 @@ export function SportField({
     }
   };
 
-  const isCurrentUserCaptain = teamCaptains.includes(currentUserId);
+  const isCurrentUserCaptain = currentUserId ? teamCaptains.includes(currentUserId) : false;
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
@@ -164,7 +164,7 @@ export function SportField({
                           )}
                           onClick={() => onPlayerClick?.(slot.player!)}
                         >
-                          <PlayerPosition player={slot.player} />
+                          <PlayerPosition player={slot.player!} />
                         </div>
                       )}
                     </Draggable>

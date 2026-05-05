@@ -3,22 +3,15 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { handleError } from '@/lib/error-handler'
+import { withCSRF } from '@/lib/security'
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/db'
-import { handleError } from '@/lib/error-handler'
-import { z } from 'zod';
-
-const updateNotificationSchema = z.object({
-  isRead: z.boolean().optional(),
-  status: z.string().optional(), // Assuming status is a string for now, could be enum
-});
-
-export async function PATCH(
+/**
+ * DELETE /api/notifications/[id]
+ * Delete a notification
+ */
+async function DELETEHandler(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -26,31 +19,35 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const validatedData = updateNotificationSchema.parse(body);
+    const { id: notificationId } = await params
 
-    // Verify notification belongs to user
-    const notification = await prisma.notification.findFirst({
-      where: {
-        id: params.id,
-        userId: session.user.id
-      }
+    // Find notification and verify ownership
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId },
     })
 
     if (!notification) {
       return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
     }
 
-    const updatedNotification = await prisma.notification.update({
-      where: { id: params.id },
-      data: {
-        ...(validatedData.isRead !== undefined && { isRead: validatedData.isRead }),
-        ...(validatedData.status && { data: { ...notification.data, status: validatedData.status } })
-      }
+    // Verify the notification belongs to the current user
+    if (notification.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+    }
+
+    // Delete the notification
+    await prisma.notification.delete({
+      where: { id: notificationId },
     })
 
-    return NextResponse.json(updatedNotification)
+    return NextResponse.json({
+      success: true,
+      message: 'Notification deleted successfully',
+    })
   } catch (error) {
     return handleError(error)
   }
 }
+
+// Wrap state-changing methods with CSRF protection
+export const DELETE = withCSRF(DELETEHandler)
