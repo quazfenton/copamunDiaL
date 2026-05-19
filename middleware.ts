@@ -90,15 +90,6 @@ if (typeof setInterval !== 'undefined') {
   }, 5 * 60 * 1000) // Clean up every 5 minutes
 }
 
-// Cleanup on process exit
-if (typeof process !== 'undefined') {
-  process.on('exit', () => {
-    if (cleanupInterval) {
-      clearInterval(cleanupInterval)
-    }
-  })
-}
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 

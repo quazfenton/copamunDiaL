@@ -25,7 +25,8 @@ interface TeamChatProps {
 }
 
 export default function TeamChat({ teamId }: TeamChatProps) {
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);

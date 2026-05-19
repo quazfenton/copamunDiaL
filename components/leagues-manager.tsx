@@ -24,7 +24,8 @@ type League = {
 };
 
 export default function LeaguesManager() {
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const [leagues, setLeagues] = useState<League[]>([]);
   const [newLeague, setNewLeague] = useState({
     name: "",

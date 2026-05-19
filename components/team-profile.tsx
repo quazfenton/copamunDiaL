@@ -52,7 +52,8 @@ type Team = {
 };
 
 export default function TeamProfile() {
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const params = useParams();
   const teamId = params.id as string;
   const [team, setTeam] = useState<Team | null>(null);

@@ -18,7 +18,8 @@ interface FriendRequestsProps {
 }
 
 export default function FriendRequests({ currentUserId }: FriendRequestsProps) {
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const { toast } = useToast();
   const [requests, setRequests] = useState<Friendship[]>([]);
   const [loading, setLoading] = useState(true);

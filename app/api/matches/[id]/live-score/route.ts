@@ -38,9 +38,10 @@ const liveScoreSchema = z.object({
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // 1. Authentication
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -49,7 +50,7 @@ export async function POST(
 
     // 2. Get match
     const match = await prisma.match.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         homeTeam: {
           include: {
@@ -95,7 +96,7 @@ export async function POST(
 
     // 6. Update match
     const updatedMatch = await prisma.match.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         homeScore: validatedData.homeScore,
         awayScore: validatedData.awayScore,
@@ -115,7 +116,7 @@ export async function POST(
       for (const event of validatedData.events) {
         const createdEvent = await prisma.matchEvent.create({
           data: {
-            matchId: params.id,
+            matchId: id,
             type: event.type,
             minute: event.minute,
             userId: event.playerId,
@@ -132,7 +133,7 @@ export async function POST(
         if (event.type === 'GOAL') {
           await prisma.matchParticipant.updateMany({
             where: {
-              matchId: params.id,
+              matchId: id,
               userId: event.playerId,
             },
             data: {
@@ -152,7 +153,7 @@ export async function POST(
         if (event.type === 'ASSIST') {
           await prisma.matchParticipant.updateMany({
             where: {
-              matchId: params.id,
+              matchId: id,
               userId: event.playerId,
             },
             data: {
@@ -174,8 +175,8 @@ export async function POST(
     try {
       const socketServer = getSocketServer();
       if (socketServer) {
-        socketServer.emitToMatch(params.id, 'match:scoreUpdated', {
-          matchId: params.id,
+        socketServer.emitToMatch(id, 'match:scoreUpdated', {
+          matchId: id,
           homeScore: validatedData.homeScore,
           awayScore: validatedData.awayScore,
           minute: validatedData.minute,
@@ -190,7 +191,7 @@ export async function POST(
     }
 
     // 9. Create notifications for participants
-    await createScoreUpdateNotifications(params.id, validatedData);
+    await createScoreUpdateNotifications(id, validatedData);
 
     return successResponse.ok({
       match: updatedMatch,
@@ -213,11 +214,12 @@ export async function POST(
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const match = await prisma.match.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         homeTeam: {
           select: { id: true, name: true, logo: true, rating: true },

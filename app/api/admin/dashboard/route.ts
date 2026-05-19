@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       case 'security':
         return getSecurityAnalytics()
       case 'users':
-        return getUserAnalytics()
+        return getUserAnalytics(request)
       default:
         return getAdminOverview()
     }
@@ -90,10 +90,14 @@ async function getAdminOverview() {
         gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
       },
     },
-    _count: true,
+    _count: {
+      eventType: true,
+    },
     take: 10,
     orderBy: {
-      _count: 'desc',
+      _count: {
+        eventType: 'desc',
+      },
     },
   })
 
@@ -134,7 +138,7 @@ async function getAdminOverview() {
     },
     recentActivity: recentActivity.map((a) => ({
       eventType: a.eventType,
-      count: a._count,
+      count: a._count.eventType,
     })),
   })
 }
@@ -211,7 +215,7 @@ async function getSecurityAnalytics() {
 /**
  * Get user analytics
  */
-async function getUserAnalytics() {
+async function getUserAnalytics(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const page = parseInt(searchParams.get('page') || '1')
   const limit = parseInt(searchParams.get('limit') || '20')

@@ -19,7 +19,8 @@ interface GameLocation {
 }
 
 export default function MapPage() {
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const [locations, setLocations] = useState<GameLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

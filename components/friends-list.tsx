@@ -15,7 +15,8 @@ interface FriendsListProps {
 }
 
 export default function FriendsList({ currentUserId }: FriendsListProps) {
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const { toast } = useToast();
   const [friends, setFriends] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);

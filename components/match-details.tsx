@@ -22,7 +22,8 @@ interface MatchDetailsProps {
 }
 
 export default function MatchDetails({ initialMatch }: MatchDetailsProps) {
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const [match, setMatch] = useState<Match>(initialMatch);
   const { socket, isConnected } = useSocket(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
 

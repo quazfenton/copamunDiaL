@@ -51,7 +51,8 @@ type MatchRecommendation = {
 type Recommendation = PlayerRecommendation | TeamRecommendation | MatchRecommendation;
 
 export default function Recommendations() {
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -46,7 +46,9 @@ const formations = {
 }
 
 function SportsManagementAppContent() {
-  const { data: session, status } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
+  const status = sessionResult?.status;
   const [selectedSport, setSelectedSport] = useState(sports[0])
   const [selectedFormation, setSelectedFormation] = useState((formations as any)[selectedSport][0])
   const [isMenuOpen, setIsMenuOpen] = useState(false)

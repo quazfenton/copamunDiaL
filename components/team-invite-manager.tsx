@@ -38,7 +38,8 @@ interface TeamInviteManagerProps {
 }
 
 export default function TeamInviteManager({ teamId }: TeamInviteManagerProps) {
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const [sentInvites, setSentInvites] = useState<TeamInvite[]>([]);
   const [receivedInvites, setReceivedInvites] = useState<TeamInvite[]>([]);
   const [newInviteEmail, setNewInviteEmail] = useState("");

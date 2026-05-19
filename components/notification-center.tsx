@@ -15,7 +15,8 @@ type Notification = {
 };
 
 export default function NotificationCenter() {
-  const { data: session } = useSession();
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const { socket } = useSocket(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
