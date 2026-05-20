@@ -1,0 +1,43 @@
+# CopaMundial - Production Docker Compose (Oracle A1 Flex)
+# Uses managed Neon (PostgreSQL) + Upstash (Redis) to minimize instance overhead
+# Connects to existing bing-network for Caddy reverse proxy routing
+
+services:
+  copa-app:
+    build:
+      context: ..
+      dockerfile: Dockerfile.copa
+    container_name: copa-app
+    restart: unless-stopped
+    ports:
+      - "3004:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - REDIS_URL=${REDIS_URL}
+      - SOCKET_PORT=3000
+    networks:
+      - bing_edge
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+# Use the existing bing_edge network so Caddy can reverse proxy to this service
+networks:
+  bing_edge:
+    external: true
+    name: bing_edge

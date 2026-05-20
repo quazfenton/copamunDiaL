@@ -1,0 +1,57 @@
+# CopaMundial Production Dockerfile
+# Combined Next.js + Socket.IO server on one port
+FROM node:20-alpine AS base
+
+# Install dependencies
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Build
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build Next.js standalone (dummy DB URL for build-time page data collection)
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build?schema=public"
+RUN npm run build
+
+# Production runner
+FROM base AS runner
+RUN apk add --no-cache wget
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Standalone Next.js output
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+# Full node_modules from builder (includes Prisma binary)
+COPY --from=builder /app/node_modules ./node_modules
+
+# Server files (Next.js + Socket.IO combined)
+COPY --from=builder /app/server ./server
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+CMD ["node", "server/server.js"]

@@ -1,0 +1,127 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { handleError } from '@/lib/error-handler';
+import { z } from 'zod';
+import { calculateDistance } from '@/lib/utils';
+import { withCSRF } from '@/lib/security';
+
+const createPickupGameSchema = z.object({
+  location: z.string(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  date: z.coerce.date(), // Use z.coerce.date()
+  sport: z.string(),
+  playersNeeded: z.number().int().min(1),
+  description: z.string().optional(),
+});
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const sport = searchParams.get('sport');
+    const date = searchParams.get('date');
+    const userLatitude = parseFloat(searchParams.get('latitude') || 'NaN');
+    const userLongitude = parseFloat(searchParams.get('longitude') || 'NaN');
+    const radius = parseFloat(searchParams.get('radius') || 'NaN'); // in kilometers
+
+    let where: any = {};
+
+    if (sport) {
+      where.sport = sport;
+    }
+
+    if (date) {
+      const startDate = new Date(date);
+      const endDate = new Date(date);
+      endDate.setDate(endDate.getDate() + 1);
+      
+      where.date = {
+        gte: startDate,
+        lt: endDate,
+      };
+    }
+
+    let pickupGames = await prisma.pickupGame.findMany({
+      where,
+      include: {
+        organizer: {
+          select: {
+            id: true,
+            name: true,
+            firstName: true,
+            image: true,
+          },
+        },
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                firstName: true,
+                image: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        date: 'asc',
+      },
+    });
+
+    // Apply radius filtering if coordinates and radius are provided
+    if (!isNaN(userLatitude) && !isNaN(userLongitude) && !isNaN(radius)) {
+      pickupGames = pickupGames.filter((game: any) => {
+        if (game.latitude && game.longitude) {
+          const distance = calculateDistance(userLatitude, userLongitude, game.latitude, game.longitude);
+          return distance <= radius;
+        }
+        return false;
+      });
+    }
+
+    return NextResponse.json(pickupGames);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+async function POSTHandler(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const validatedData = createPickupGameSchema.parse(body);
+
+    const newPickupGame = await prisma.pickupGame.create({
+      data: {
+        date: validatedData.date,
+        location: validatedData.location,
+        latitude: validatedData.latitude,
+        longitude: validatedData.longitude,
+        sport: validatedData.sport,
+        playersNeeded: validatedData.playersNeeded,
+        description: validatedData.description,
+        organizerId: session.user.id,
+      },
+    });
+
+    return NextResponse.json(newPickupGame, { status: 201 });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// Wrap state-changing methods with CSRF protection
+export const POST = withCSRF(POSTHandler)
