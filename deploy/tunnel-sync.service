@@ -1,0 +1,13 @@
+[Unit]
+Description=Sync Tunnel URL to Cloudflare Worker KV
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/sync-tunnel-url.sh
+User=ubuntu
+Group=ubuntu
+
+[Install]
+WantedBy=multi-user.target

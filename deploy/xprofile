@@ -1,0 +1,2 @@
+# Auto-set DISPLAY for VNC sessions
+export DISPLAY=:1

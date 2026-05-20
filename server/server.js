@@ -22,7 +22,7 @@ const handle = app.getRequestHandler();
 // Configuration
 const PORT = process.env.PORT || 3000;
 const SOCKET_PORT = process.env.SOCKET_PORT || 3001;
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL && process.env.REDIS_URL.trim() !== '' ? process.env.REDIS_URL : null;
 
 // Global state
 let io;
@@ -35,12 +35,17 @@ let isShuttingDown = false;
  * Initialize Redis clients for Socket.IO adapter
  */
 async function initializeRedis() {
+  if (!REDIS_URL) {
+    console.log('⚠ REDIS_URL not set, running without Redis adapter (single instance mode)');
+    return false;
+  }
+
   try {
     pubClient = createClient({ url: REDIS_URL });
     subClient = pubClient.duplicate();
 
-    pubClient.on('error', (err) => console.error('Redis Pub Client Error:', err));
-    subClient.on('error', (err) => console.error('Redis Sub Client Error:', err));
+    pubClient.on('error', (err) => console.error('Redis Pub Client Error:', err.message));
+    subClient.on('error', (err) => console.error('Redis Sub Client Error:', err.message));
 
     await Promise.all([pubClient.connect(), subClient.connect()]);
     

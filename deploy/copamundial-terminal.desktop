@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=CopaMundial Terminal
+Comment=Open terminal with CopaMundial management tools
+Exec=lxterminal -e fish
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Utility;

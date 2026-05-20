@@ -1,0 +1,6 @@
+# CopaMundial bash aliases
+alias copa-logs="docker logs -f copa-app"
+alias copa-restart="cd /opt/copamundial/deploy && docker compose -f docker-compose.copa.yml up -d"
+alias copa-edit="nano /opt/copamundial/deploy/.env"
+alias copa-status="docker ps --filter name=copa-app"
+alias copa="copa"

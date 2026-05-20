@@ -1,0 +1,15 @@
+#!/bin/sh
+# VNC xstartup - sets environment for all VNC sessions
+export DISPLAY=:1
+xhost +si:localuser:$(whoami) 2>/dev/null
+
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+xrdb $HOME/.Xresources
+
+# Ensure CopaMundial is running
+docker ps --filter name=copa-app --format '{{.Status}}' | grep -q Up || (cd /opt/copamundial/deploy && docker compose -f docker-compose.copa.yml up -d)
+
+# Start LXDE
+export LXDE_PREFIX=/usr
+startlxde

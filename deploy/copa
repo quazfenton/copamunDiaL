@@ -1,0 +1,60 @@
+#!/bin/bash
+# CopaMundial Management Script
+# Usage: copa [status|logs|restart|stop|edit|health|shell]
+
+ACTION="${1:-status}"
+COMPOSE_DIR="/opt/copamundial/deploy"
+COMPOSE_FILE="docker-compose.copa.yml"
+
+case "$ACTION" in
+  status)
+    echo "=== CopaMundial Status ==="
+    docker ps --filter name=copa-app --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+    echo ""
+    echo "=== Resource Usage ==="
+    docker stats copa-app --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+    ;;
+  logs)
+    docker logs -f copa-app
+    ;;
+  restart)
+    cd "$COMPOSE_DIR" && docker compose -f "$COMPOSE_FILE" up -d
+    echo "Restarting CopaMundial..."
+    sleep 5
+    docker logs copa-app --tail 10
+    ;;
+  stop)
+    cd "$COMPOSE_DIR" && docker compose -f "$COMPOSE_FILE" down
+    echo "CopaMundial stopped."
+    ;;
+  edit)
+    nano "$COMPOSE_DIR/.env"
+    ;;
+  health)
+    echo "=== Health Check ==="
+    curl -s http://localhost:3004/health | python3 -m json.tool 2>/dev/null || curl -s http://localhost:3004/health
+    echo ""
+    echo "=== DB Connection ==="
+    curl -s http://localhost:3004/api/health | python3 -m json.tool 2>/dev/null || curl -s http://localhost:3004/api/health
+    ;;
+  shell)
+    docker exec -it copa-app sh
+    ;;
+  rebuild)
+    cd "$COMPOSE_DIR" && docker compose -f "$COMPOSE_FILE" build && docker compose -f "$COMPOSE_FILE" up -d
+    ;;
+  *)
+    echo "CopaMundial Manager"
+    echo "Usage: copa [command]"
+    echo ""
+    echo "Commands:"
+    echo "  status    - Show container status and resource usage"
+    echo "  logs      - Follow container logs"
+    echo "  restart   - Restart the container"
+    echo "  stop      - Stop the container"
+    echo "  rebuild   - Rebuild image and restart"
+    echo "  edit      - Edit .env file"
+    echo "  health    - Run health checks"
+    echo "  shell     - Open shell inside container"
+    ;;
+esac
