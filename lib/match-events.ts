@@ -105,21 +105,25 @@ export async function createMatchEvent(
     const event = await prisma.matchEvent.create({
       data: {
         matchId,
-        type: data.type,
+        type: data.type as any,
         minute: data.minute,
         userId: data.playerId,
         details: data.details as any,
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            firstName: true,
-          },
-        },
+        match: { select: { date: true } },
       },
     })
+
+    // Fetch player name if userId is provided
+    let playerName: string | undefined
+    if (data.playerId) {
+      const user = await prisma.user.findUnique({
+        where: { id: data.playerId },
+        select: { name: true, firstName: true },
+      })
+      playerName = user?.name || user?.firstName || undefined
+    }
 
     // Update match score if goal
     if (data.type === MatchEventType.GOAL && data.details?.homeScore !== undefined) {
@@ -179,8 +183,13 @@ export async function createMatchEvent(
     return {
       success: true,
       event: {
-        ...event,
-        playerName: event.user?.name || event.user?.firstName,
+        id: event.id,
+        matchId: event.matchId,
+        type: event.type as MatchEventType,
+        minute: event.minute,
+        playerId: event.userId || undefined,
+        playerName,
+        details: event.details as MatchEvent['details'],
         timestamp: event.match.date,
       },
     }
@@ -200,20 +209,27 @@ export async function getMatchEvents(matchId: string): Promise<MatchEvent[]> {
   const events = await prisma.matchEvent.findMany({
     where: { matchId },
     include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          firstName: true,
-        },
-      },
+      match: { select: { date: true } },
     },
     orderBy: [{ minute: 'asc' }, { id: 'asc' }],
   })
 
+  // Batch fetch user names for all events with userId
+  const userIds = [...new Set(events.filter(e => e.userId).map(e => e.userId!))]
+  const users = userIds.length > 0 ? await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, name: true, firstName: true },
+  }) : []
+  const userMap = new Map(users.map(u => [u.id, u]))
+
   return events.map((e) => ({
-    ...e,
-    playerName: e.user?.name || e.user?.firstName,
+    id: e.id,
+    matchId: e.matchId,
+    type: e.type as MatchEventType,
+    minute: e.minute,
+    playerId: e.userId || undefined,
+    playerName: e.userId ? (userMap.get(e.userId)?.name || userMap.get(e.userId)?.firstName || undefined) : undefined,
+    details: e.details as MatchEvent['details'],
     timestamp: e.match.date,
   }))
 }
@@ -331,7 +347,7 @@ export async function updateMatchStatusFromEvents(
 
     await prisma.match.update({
       where: { id: matchId },
-      data: { status: newStatus as any },
+      data: { status: newStatus as 'SCHEDULED' | 'LIVE' | 'COMPLETED' | 'CANCELLED' | 'PENDING' },
     })
 
     return { success: true }

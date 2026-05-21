@@ -319,7 +319,7 @@ export class CacheService {
             homeTeam: { select: { id: true, name: true, logo: true, rating: true } },
             awayTeam: { select: { id: true, name: true, logo: true, rating: true } },
             participants: { include: { user: true } },
-            events: { include: { user: true } },
+            events: { include: { match: { select: { date: true } } } },
           },
         });
       },
@@ -349,7 +349,6 @@ export class CacheService {
           },
           orderBy: [
             { points: 'desc' },
-            { goalDifference: 'desc' },
             { goalsFor: 'desc' },
           ],
         });
@@ -366,18 +365,35 @@ export class CacheService {
       `tournament:bracket:${tournamentId}`,
       async () => {
         const { prisma } = await import('./db');
-        return prisma.tournamentBracket.findFirst({
+        const bracket = await prisma.tournamentBracket.findFirst({
           where: { tournamentId },
           include: {
             matches: {
-              include: {
-                homeTeam: { select: { id: true, name: true } },
-                awayTeam: { select: { id: true, name: true } },
-              },
               orderBy: [{ round: 'asc' }, { matchNumber: 'asc' }],
             },
           },
         });
+
+        if (!bracket) return null;
+
+        // Fetch team names for all matches
+        const teamIds = [...new Set(
+          bracket.matches.flatMap(m => [m.homeTeamId, m.awayTeamId].filter((id): id is string => id !== null))
+        )];
+        const teams = teamIds.length > 0 ? await prisma.team.findMany({
+          where: { id: { in: teamIds } },
+          select: { id: true, name: true },
+        }) : [];
+        const teamNameMap = new Map(teams.map(t => [t.id, t.name]));
+
+        return {
+          ...bracket,
+          matches: bracket.matches.map(m => ({
+            ...m,
+            homeTeamName: m.homeTeamId ? teamNameMap.get(m.homeTeamId) : undefined,
+            awayTeamName: m.awayTeamId ? teamNameMap.get(m.awayTeamId) : undefined,
+          })),
+        };
       },
       120 // 2 minutes
     );

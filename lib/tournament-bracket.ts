@@ -203,7 +203,7 @@ export async function createTournamentBracket(
   const bracket = await prisma.tournamentBracket.create({
     data: {
       tournamentId,
-      bracketData: { rounds: groupMatchesByRound(matches) },
+      bracketData: { rounds: groupMatchesByRound(matches) } as any,
     },
   })
 
@@ -382,10 +382,6 @@ export async function getTournamentBracket(
     where: { tournamentId },
     include: {
       matches: {
-        include: {
-          homeTeam: { select: { id: true, name: true } },
-          awayTeam: { select: { id: true, name: true } },
-        },
         orderBy: [{ round: 'asc' }, { matchNumber: 'asc' }],
       },
     },
@@ -395,21 +391,31 @@ export async function getTournamentBracket(
     return null
   }
 
+  // Fetch team names for all matches
+  const teamIds = [...new Set(
+    bracket.matches.flatMap(m => [m.homeTeamId, m.awayTeamId].filter((id): id is string => id !== null))
+  )]
+  const teams = teamIds.length > 0 ? await prisma.team.findMany({
+    where: { id: { in: teamIds } },
+    select: { id: true, name: true },
+  }) : []
+  const teamNameMap = new Map(teams.map(t => [t.id, t.name]))
+
   const matches: BracketMatch[] = bracket.matches.map((m) => ({
     id: m.id,
     round: m.round,
     matchNumber: m.matchNumber,
     homeTeamId: m.homeTeamId,
     awayTeamId: m.awayTeamId,
-    homeTeamName: m.homeTeam?.name,
-    awayTeamName: m.awayTeam?.name,
+    homeTeamName: m.homeTeamId ? teamNameMap.get(m.homeTeamId) : undefined,
+    awayTeamName: m.awayTeamId ? teamNameMap.get(m.awayTeamId) : undefined,
     winnerId: m.winnerId,
     homeScore: m.homeScore,
     awayScore: m.awayScore,
     scheduledAt: m.scheduledAt,
     completedAt: m.completedAt,
     status: m.status as MatchStatus,
-    bracketId: m.bracketId,
+    bracketId: m.bracketId ?? undefined,
   }))
 
   return {
@@ -468,11 +474,17 @@ export async function getTournamentStandings(
 > {
   const matches = await prisma.tournamentMatch.findMany({
     where: { tournamentId },
-    include: {
-      homeTeam: { select: { id: true, name: true } },
-      awayTeam: { select: { id: true, name: true } },
-    },
   })
+
+  // Fetch team names
+  const teamIds = [...new Set(
+    matches.flatMap(m => [m.homeTeamId, m.awayTeamId].filter((id): id is string => id !== null))
+  )]
+  const teams = teamIds.length > 0 ? await prisma.team.findMany({
+    where: { id: { in: teamIds } },
+    select: { id: true, name: true },
+  }) : []
+  const teamNameMap = new Map(teams.map(t => [t.id, t.name]))
 
   const standings = new Map<
     string,
@@ -490,14 +502,17 @@ export async function getTournamentStandings(
   >()
 
   matches.forEach((match) => {
-    if (!match.homeTeam || !match.awayTeam) return
+    if (!match.homeTeamId || !match.awayTeamId) return
     if (match.status !== 'COMPLETED') return
 
+    const homeTeamName = teamNameMap.get(match.homeTeamId) || 'Unknown'
+    const awayTeamName = teamNameMap.get(match.awayTeamId) || 'Unknown'
+
     // Initialize teams if not exists
-    if (!standings.has(match.homeTeam.id)) {
-      standings.set(match.homeTeam.id, {
-        teamId: match.homeTeam.id,
-        teamName: match.homeTeam.name,
+    if (!standings.has(match.homeTeamId)) {
+      standings.set(match.homeTeamId, {
+        teamId: match.homeTeamId,
+        teamName: homeTeamName,
         played: 0,
         wins: 0,
         losses: 0,
@@ -507,10 +522,10 @@ export async function getTournamentStandings(
         points: 0,
       })
     }
-    if (!standings.has(match.awayTeam.id)) {
-      standings.set(match.awayTeam.id, {
-        teamId: match.awayTeam.id,
-        teamName: match.awayTeam.name,
+    if (!standings.has(match.awayTeamId)) {
+      standings.set(match.awayTeamId, {
+        teamId: match.awayTeamId,
+        teamName: awayTeamName,
         played: 0,
         wins: 0,
         losses: 0,
@@ -521,8 +536,8 @@ export async function getTournamentStandings(
       })
     }
 
-    const home = standings.get(match.homeTeam.id)!
-    const away = standings.get(match.awayTeam.id)!
+    const home = standings.get(match.homeTeamId)!
+    const away = standings.get(match.awayTeamId)!
 
     // Update stats
     home.played++
