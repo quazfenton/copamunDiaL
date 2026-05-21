@@ -5,7 +5,10 @@ import { players, teams, matches, leagues, pickupGames } from '../lib/data';
 const app = express();
 const port = 3001;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+}));
 app.use(express.json());
 
 app.get('/api/players', (req, res) => {
